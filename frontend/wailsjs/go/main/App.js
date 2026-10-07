@@ -14,6 +14,10 @@ export function CloseWindow() {
   return window['go']['main']['App']['CloseWindow']();
 }
 
+export function CopyAccount(arg1) {
+  return window['go']['main']['App']['CopyAccount'](arg1);
+}
+
 export function CopyCode(arg1) {
   return window['go']['main']['App']['CopyCode'](arg1);
 }

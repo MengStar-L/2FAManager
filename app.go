@@ -37,6 +37,7 @@ type App struct {
 	domReadyOnce      sync.Once
 	closeMu           sync.Mutex
 	updates           *applicationUpdater
+	clipboardWrite    func(context.Context, string) error
 }
 
 type State struct {
@@ -126,7 +127,7 @@ func (a *App) GetState() (State, error) {
 	}
 	tokens, err := a.store.List()
 	var warnings []string
-	for _, warning := range []string{a.settingsWarning, a.sessionWarning, a.trayWarning} {
+	for _, warning := range []string{a.store.Warning(), a.settingsWarning, a.sessionWarning, a.trayWarning} {
 		if warning != "" {
 			warnings = append(warnings, warning)
 		}
@@ -202,6 +203,25 @@ func (a *App) CopyCode(id string) error {
 		}
 	}
 	return errors.New("令牌不存在")
+}
+
+// CopyAccount copies the saved account only. The UI supplies an ID, never
+// arbitrary clipboard content or an authenticator secret.
+func (a *App) CopyAccount(id string) error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if err := a.ready(); err != nil {
+		return err
+	}
+	account, err := a.store.Account(id)
+	if err != nil {
+		return err
+	}
+	write := a.clipboardWrite
+	if write == nil {
+		write = runtime.ClipboardSetText
+	}
+	return write(a.ctx, account)
 }
 
 func (a *App) PreviewClipboard() ([]ImportPreview, error) {

@@ -41,7 +41,9 @@ type document struct {
 }
 
 // Store serializes all access, and publishes mutations only after their
-// encrypted replacement file has successfully reached disk.
+// encrypted replacement file has successfully reached disk. Recomputable
+// service defaults may be applied in memory when a startup migration cannot
+// be persisted, so the existing vault remains usable.
 type Store struct {
 	mu      sync.RWMutex
 	path    string
@@ -49,6 +51,7 @@ type Store struct {
 	protect func([]byte) ([]byte, error)
 	write   func(string, []byte) error
 	now     func() time.Time
+	warning string
 }
 
 // Open loads the current user's encrypted token vault. A missing file is a new
@@ -58,10 +61,14 @@ func Open(dir string) (*Store, error) {
 }
 
 func openWithProtection(dir string, protect, unprotect func([]byte) ([]byte, error)) (*Store, error) {
+	return openWithStorage(dir, protect, unprotect, atomicWrite)
+}
+
+func openWithStorage(dir string, protect, unprotect func([]byte) ([]byte, error), write func(string, []byte) error) (*Store, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, fmt.Errorf("无法创建令牌库目录: %w", err)
 	}
-	store := &Store{path: filepath.Join(dir, vaultFileName), records: make([]record, 0), protect: protect, write: atomicWrite, now: time.Now}
+	store := &Store{path: filepath.Join(dir, vaultFileName), records: make([]record, 0), protect: protect, write: write, now: time.Now}
 	file, err := os.Open(store.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return store, nil
@@ -72,6 +79,11 @@ func openWithProtection(dir string, protect, unprotect func([]byte) ([]byte, err
 	defer file.Close()
 	encrypted, err := io.ReadAll(io.LimitReader(file, maxVaultSize+1))
 	if err != nil {
+		return nil, fmt.Errorf("无法读取令牌库: %w", err)
+	}
+	// Release the original handle before an atomic migration replaces the file
+	// on Windows. All validation still completes before any write is attempted.
+	if err := file.Close(); err != nil {
 		return nil, fmt.Errorf("无法读取令牌库: %w", err)
 	}
 	if len(encrypted) > maxVaultSize || len(encrypted) <= len(vaultMagic) || !bytes.HasPrefix(encrypted, []byte(vaultMagic)) {
@@ -111,14 +123,45 @@ func openWithProtection(dir string, protect, unprotect func([]byte) ([]byte, err
 		ids[r.ID] = true
 		identities[key] = true
 	}
+	migrated := false
+	for i := range saved.Tokens {
+		input := withDefaultGroup(saved.Tokens[i].TokenInput)
+		if input != saved.Tokens[i].TokenInput {
+			saved.Tokens[i].TokenInput = input
+			migrated = true
+		}
+	}
+	if migrated {
+		if err := store.save(saved.Tokens); err != nil {
+			store.warning = "自动分组暂未保存，原令牌库已保留；令牌可以继续使用，下次保存时会重试。"
+		}
+	}
 	store.records = saved.Tokens
 	return store, nil
+}
+
+func (s *Store) Warning() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.warning
 }
 
 func (s *Store) List() ([]Token, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return tokensAt(s.records, s.now().Unix())
+}
+
+// Account returns only the selected account metadata, without calculating a
+// code or exposing the stored secret to the caller.
+func (s *Store) Account(id string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	index := s.index(id)
+	if index < 0 {
+		return "", ErrNotFound
+	}
+	return s.records[index].Account, nil
 }
 
 func (s *Store) Add(input TokenInput) (Token, error) {
@@ -176,6 +219,7 @@ func (s *Store) addInputs(inputs []TokenInput) ([]Token, error) {
 	}
 	added := make([]record, 0, len(inputs))
 	for _, input := range inputs {
+		input = withDefaultGroup(input)
 		key := identity(input)
 		if seen[key] {
 			return nil, ErrDuplicate
@@ -213,6 +257,7 @@ func (s *Store) Update(id string, input TokenInput) (Token, error) {
 	if err != nil {
 		return Token{}, err
 	}
+	input = withDefaultGroup(input)
 	for i, existing := range s.records {
 		if i != index && identity(existing.TokenInput) == identity(input) {
 			return Token{}, ErrDuplicate
@@ -305,6 +350,7 @@ func (s *Store) save(records []record) error {
 	if err := s.write(s.path, append([]byte(vaultMagic), encrypted...)); err != nil {
 		return fmt.Errorf("无法写入令牌库，未保存任何更改: %w", err)
 	}
+	s.warning = ""
 	return nil
 }
 

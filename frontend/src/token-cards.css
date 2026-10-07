@@ -1,0 +1,26 @@
+.provider-glyph { width: 24px; height: 24px; display: block; flex-shrink: 0; }
+.preview-provider .provider-glyph { width: 22px; height: 22px; }
+.brand-openai { color: #65786d; }
+.brand-google { color: #4285f4; }
+.brand-microsoft { color: #737d85; }
+.brand-github, .brand-apple, .brand-notion { color: #667085; }
+.brand-amazon { color: #bc842f; }
+.brand-discord { color: #5865f2; }
+.brand-telegram { color: #26a5e4; }
+.brand-dropbox { color: #0061ff; }
+.brand-figma { color: #d66f57; }
+.account-copy {
+  display: flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0;
+  min-height: 25px; margin: -3px 0 -3px -5px; padding: 3px 5px; border-radius: 7px;
+  background: transparent; color: var(--ui-text); font-size: 11px; line-height: 1.4;
+  font-family: Nunito, 'Microsoft YaHei UI', sans-serif; text-align: left;
+  transition: background-color .18s, color .18s;
+}
+.account-copy > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.account-copy-icon { display: flex; flex: 0 0 12px; opacity: .45; transition: opacity .18s; }
+.account-copy:hover, .account-copy:focus-visible { background: var(--ui-tint); }
+.account-copy:hover .account-copy-icon, .account-copy:focus-visible .account-copy-icon, .account-copy.is-account-copied .account-copy-icon { opacity: 1; }
+.account-copy.is-account-copied { color: #668774; background: #edf5ef; }
+.account-empty { display: block; font-size: 11px; line-height: 25px; color: var(--ui-text); }
+@media (max-width: 870px) { .account-copy, .account-empty { font-size: 10px; } .provider-glyph { width: 21px; height: 21px; } }
+@media (max-width: 620px) { .provider-glyph { width: 18px; height: 18px; } .account-copy { gap: 4px; } }

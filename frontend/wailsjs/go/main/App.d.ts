@@ -9,6 +9,8 @@ export function CheckForUpdates():Promise<main.UpdateStatus>;
 
 export function CloseWindow():Promise<void>;
 
+export function CopyAccount(arg1:string):Promise<void>;
+
 export function CopyCode(arg1:string):Promise<void>;
 
 export function DeleteToken(arg1:string):Promise<void>;

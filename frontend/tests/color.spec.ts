@@ -83,9 +83,10 @@ test('custom accent previews globally, cancels, saves and survives switching ico
   const formBefore = await formSamples(page)
   await appearance(page).click()
   await page.getByRole('button', { name: '点缀色 蓝色', exact: true }).click()
-  await expect.poll(async () => (await colorSamples(page)).button).not.toBe(before.button)
+  for (const key of ['button', 'nav', 'navBackground', 'wordmark', 'icon'] as const) {
+    await expect.poll(async () => (await colorSamples(page))[key], { message: key }).not.toBe(before[key])
+  }
   const preview = await colorSamples(page)
-  for (const key of ['button', 'nav', 'navBackground', 'wordmark', 'icon'] as const) expect(preview[key], key).not.toBe(before[key])
   expect(preview.brands).toEqual(before.brands)
   expect(preview.images).toEqual(before.images)
   await page.keyboard.press('Escape')

@@ -6,8 +6,16 @@
 .app ::selection { color: var(--ui-ink); background: var(--ui-soft); }
 .app ::-webkit-scrollbar-thumb { background: var(--ui-border); }
 .app ::-webkit-scrollbar-thumb:hover { background: var(--ui-icon); }
-.app button:focus-visible, .app a:focus-visible, .app [tabindex]:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
-.app input:focus, .app textarea:focus, .app select:focus { border-color: var(--ui-focus) !important; box-shadow: 0 0 0 3px rgb(var(--ui-rgb) / .15) !important; }
+/* WebView retains the active element when the native window loses focus.
+   Only paint focus while active, without blurring the element or its caret. */
+:root[data-window-active="true"] .app button:focus-visible,
+:root[data-window-active="true"] .app a:focus-visible,
+:root[data-window-active="true"] .app [tabindex]:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
+:root[data-window-active="false"] .app :is(button, a, [tabindex]):focus-visible,
+:root[data-input-method="pointer"] .app :is(button, a, [tabindex]):focus-visible { outline: none; }
+:root[data-window-active="true"] .app input:focus,
+:root[data-window-active="true"] .app textarea:focus,
+:root[data-window-active="true"] .app select:focus { border-color: var(--ui-focus) !important; box-shadow: 0 0 0 3px rgb(var(--ui-rgb) / .15) !important; }
 .app input::placeholder, .app textarea::placeholder { color: var(--ui-muted); opacity: .8; }
 .app .btn-primary, .app .icon-action.primary-action, .app .btn-primary:hover:not(:disabled), .app .icon-action.primary-action:hover {
   background: var(--ui-accent); color: var(--on-accent); border: 1px solid var(--ui-focus);
@@ -32,7 +40,7 @@
 .app .import-tabs button { color: var(--ui-muted); }
 .app .import-tabs button.active { color: var(--ui-text); }
 .app .import-tab-indicator { background: #fffdf8; box-shadow: 0 2px 7px rgb(var(--ui-shadow-rgb) / .08); }
-.app .search-box:focus-within { border-color: var(--ui-focus); }
+:root[data-window-active="true"] .app .search-box:focus-within { border-color: var(--ui-focus); }
 .app .search-box input:focus { box-shadow: none !important; }
 .app .modal-overlay { background: rgb(var(--ui-shadow-rgb) / .18); }
 .app .glow-one, .app .glow-two { background: var(--ui-glow); }

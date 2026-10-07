@@ -32,6 +32,11 @@ try {
     Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination $portableDirectory -Force
     Copy-Item -LiteralPath (Join-Path $projectRoot 'frontend/src/assets/fonts/OFL.txt') -Destination (Join-Path $portableDirectory 'Nunito-LICENSE.txt') -Force
     Copy-Item -LiteralPath (Join-Path $projectRoot 'frontend/src/assets/fonts/ZCOOLKuaiLe-OFL.txt') -Destination (Join-Path $portableDirectory 'ZCOOLKuaiLe-LICENSE.txt') -Force
+    $brandNotices = Join-Path $portableDirectory 'BrandIcons'
+    New-Item -ItemType Directory -Force -Path $brandNotices | Out-Null
+    foreach ($notice in @('LICENSE.md', 'DISCLAIMER.md', 'SOURCES.md', 'icons.json')) {
+        Copy-Item -LiteralPath (Join-Path $projectRoot "frontend/src/assets/brands/$notice") -Destination $brandNotices -Force
+    }
     $zipName = "Luma-$version-windows-amd64.zip"
     Compress-Archive -Path (Join-Path $portableDirectory '*') -DestinationPath (Join-Path $releaseDirectory $zipName) -Force
     $lines = @($assetName, $zipName) | ForEach-Object {

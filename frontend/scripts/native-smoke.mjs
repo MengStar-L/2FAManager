@@ -503,6 +503,16 @@ try {
   let token = await assertNativeCode(page, secret, id);
   passed('native QR image import and independently verified TOTP');
 
+  await bridge(page, 'UpdateToken', id, {
+    issuer: 'oPeNaI', account: 'openai-native@example.test', group: '', secret: '', color: '#8b7fd6',
+    algorithm: token.algorithm, digits: token.digits, period: token.period,
+  });
+  token = await assertNativeCode(page, secret, id);
+  check(token.group === 'OpenAI', 'An ungrouped OpenAI account was not classified by the native vault');
+  check(await page.evaluate(() => typeof window.go.main.App.CopyAccount === 'function'), 'The native account-copy bridge is missing');
+  await expectRejected(page, 'CopyAccount', 'nonexistent-synthetic-token');
+  passed('native OpenAI auto-grouping preserves TOTP and account-copy rejects unknown IDs without clipboard access');
+
   await bridge(page, 'ToggleFavorite', id);
   await bridge(page, 'UpdateToken', id, {
     issuer: 'Native smoke · 示例', account: 'native-smoke@example.test', group: '本机验收', secret: '', color: '#8b7fd6',
@@ -564,11 +574,25 @@ try {
   passed('resizing preserves the real rounded native window region');
   const expectedBounds = normalWindow.normal;
   check(expectedBounds.width >= 760 && expectedBounds.height >= 560, 'Native test window size is below the application minimum');
-  await page.getByRole('button', { name: '最小化', exact: true }).click();
+  const nativeSearch = page.getByRole('textbox', { name: '搜索令牌' });
+  // Playwright enables focus emulation on every CDP page. Disable it for
+  // native activation checks so minimisation can deliver real blur events.
+  const activationCDP = await page.context().newCDPSession(page);
+  await activationCDP.send('Emulation.setFocusEmulationEnabled', { enabled: false });
+  await nativeSearch.focus();
+  await nativeSearch.press('End');
+  await page.evaluate(() => window.runtime.WindowMinimise());
   const minimized = await waitWindow(session, state => state.found && state.minimized, 'minimise');
   check(sameBounds(minimized.normal, expectedBounds), 'Minimising overwrote the normal window rectangle');
+  try { await page.waitForFunction(() => document.documentElement.dataset.windowActive === 'false'); }
+  catch { throw new Error(`Minimized focus state: ${JSON.stringify(await page.evaluate(() => ({ active: document.documentElement.dataset.windowActive, focused: document.hasFocus(), hidden: document.hidden })))}`); }
+  check(await nativeSearch.evaluate(element => getComputedStyle(element).boxShadow === 'none' && getComputedStyle(element).outlineStyle === 'none'), 'Inactive native input retained a focus halo');
+  check(await nativeSearch.inputValue() === expectedSession.search, 'Minimising discarded the active search draft');
   await restoreViaSecondInstance(session);
+  try { await page.waitForFunction(() => document.documentElement.dataset.windowActive === 'true'); }
+  catch { throw new Error(`Restored focus state: ${JSON.stringify(await page.evaluate(() => ({ active: document.documentElement.dataset.windowActive, focused: document.hasFocus(), hidden: document.hidden })))}`); }
   passed('native minimise and second-instance restore preserve normal bounds');
+  passed('native window deactivation hides focus decoration and preserves the search draft');
 
   await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await waitWindow(session, state => state.found && !state.visible, 'hide on close');
