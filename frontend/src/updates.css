@@ -1,0 +1,26 @@
+.update-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.update-heading > div { min-width: 0; }
+.update-heading h3 { margin-bottom: 5px; }
+.update-current-version { font-size: 11px; color: var(--ui-muted); font-family: Nunito, 'Microsoft YaHei UI', sans-serif; }
+.update-settings .update-check { min-height: 33px; font-size: 11px; padding: 7px 10px; gap: 6px; flex-shrink: 0; }
+.update-status { background: #fffdf8b8; border-radius: 12px; padding: 12px; margin-top: 13px; }
+.update-status-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ui-text); line-height: 1.6; overflow-wrap: anywhere; }
+.update-failed .update-status-label { color: #a34a5e; }
+.update-message { color: var(--ui-muted); font-size: 10px; line-height: 1.7; margin: 5px 0 0; overflow-wrap: anywhere; }
+.update-last-checked { display: block; font-size: 10px; color: var(--ui-muted); margin-top: 5px; }
+.update-progress { margin-top: 10px; height: 5px; background: var(--ui-border); border-radius: 6px; overflow: hidden; }
+.update-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--ui-focus); transition: width .22s ease; }
+.update-progress-caption { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--ui-muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.update-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 11px; margin-top: 10px; }
+.update-actions .btn { min-height: 33px; font-size: 11px; padding: 7px 10px; gap: 6px; }
+.update-actions .text-button { font-size: 10px; padding: 5px 0; }
+.update-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; }
+.update-option > span { min-width: 0; }
+.update-option strong { font-size: 12px; line-height: 1.5; font-weight: 500; color: var(--ui-text); }
+.update-option small { display: block; font-size: 10px; line-height: 1.6; margin-top: 3px; color: var(--ui-muted); }
+.update-option .toggle { flex-shrink: 0; }
+.appearance-link[data-update="true"] { position: relative; }
+.appearance-link[data-update="true"]::after { content: ''; position: absolute; right: 8px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--ui-focus); box-shadow: 0 0 0 2px #fffdf8; }
+.update-spinning { animation: spin 1.1s linear infinite; }
+.theme-anime .update-option strong, .theme-anime .update-status-label { font-size: 14px; }
+@media (max-width: 620px) { .update-heading { gap: 8px; } .update-settings .update-check { font-size: 10px; padding: 7px 8px; } .update-option { gap: 9px; } }

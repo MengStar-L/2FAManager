@@ -1,0 +1,228 @@
+import { test, expect, type Page } from '@playwright/test'
+
+async function expectNoHorizontalOverflow(page: Page) {
+  await expect.poll(() => page.evaluate(() => {
+    const main = document.querySelector('.main-content')!
+    return Math.max(document.documentElement.scrollWidth - innerWidth, main.scrollWidth - main.clientWidth)
+  })).toBeLessThanOrEqual(1)
+}
+
+async function setSidebar(page: Page, collapsed: boolean) {
+  const toggle = page.getByRole('button', { name: collapsed ? '收起侧栏' : '展开侧栏', exact: true })
+  if (await toggle.count()) await toggle.click()
+  const activeToggle = page.getByRole('button', { name: collapsed ? '展开侧栏' : '收起侧栏', exact: true })
+  await expect(activeToggle).toBeVisible()
+  await expect(activeToggle).toHaveAttribute('aria-expanded', String(!collapsed))
+  if (collapsed) await expect(page.locator('.app')).toHaveClass(/sidebar-collapsed/)
+  else await expect(page.locator('.app')).not.toHaveClass(/sidebar-collapsed/)
+}
+
+async function openSearch(page: Page) {
+  const input = page.getByRole('textbox', { name: '搜索令牌' })
+  if (!(await input.isVisible())) await page.getByRole('button', { name: '搜索', exact: true }).click()
+  await expect(input).toBeVisible()
+  return input
+}
+
+async function expectSavedSession(page: Page, session: { sidebarCollapsed: boolean; filter: string; search: string }) {
+  await expect.poll(() => page.evaluate(async moduleUrl => {
+    const { api } = await import(moduleUrl)
+    return (await api.GetState()).session
+  }, '/src/api.ts')).toEqual(session)
+}
+
+test('empty state, import modal, keyboard focus and recovery', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: '暂无令牌' })).toBeVisible()
+  await expect(page.locator('.token-card')).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: '搜索令牌' })).toHaveCount(0)
+  for (const name of ['搜索', '粘贴二维码', '添加令牌']) {
+    await expect(page.getByRole('button', { name, exact: true })).toHaveText('')
+  }
+  await page.getByRole('button', { name: '搜索', exact: true }).click()
+  await expect(page.getByRole('button', { name: '搜索', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('textbox', { name: '搜索令牌' })).toBeFocused()
+  await page.getByRole('button', { name: '搜索', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: '搜索令牌' })).toHaveCount(0)
+  await expect(page.getByText('把复杂留给我们，把安心留给你。', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('MADE FOR A CALMER DIGITAL LIFE', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '添加令牌', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('button', { name: '识别链接' })).toBeDisabled()
+  await page.getByRole('button', { name: '关闭弹窗' }).focus()
+  await page.keyboard.press('Shift+Tab')
+  expect(await page.getByRole('dialog').evaluate(el => el.contains(document.activeElement))).toBeTruthy()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '添加令牌', exact: true })).toBeFocused()
+  await setSidebar(page, false)
+  await page.getByRole('button', { name: '添加令牌', exact: true }).blur()
+  await page.screenshot({ path: '../output/cream-empty.png', fullPage: true, animations: 'disabled' })
+})
+
+test('sidebar, selected group and search restore together after reload', async ({ page }) => {
+  await page.goto('/?demo')
+  await expect(page.locator('.token-card')).toHaveCount(6)
+  await setSidebar(page, true)
+  await page.reload()
+  await expect(page.getByRole('button', { name: '展开侧栏', exact: true })).toBeVisible()
+  await expect(page.locator('.app')).toHaveClass(/sidebar-collapsed/)
+  const nav = page.getByRole('navigation', { name: '令牌导航' })
+  await nav.getByRole('button', { name: '星标收藏', exact: true }).click()
+  await expect(page.locator('.token-card')).toHaveCount(2)
+  await page.getByRole('navigation', { name: '令牌分组' }).getByRole('button', { name: '工作', exact: true }).click()
+  await expect(page.locator('.token-card')).toHaveCount(3)
+  await (await openSearch(page)).fill('GitHub')
+  await expect(page.locator('.token-card')).toHaveCount(1)
+  await expectSavedSession(page, { sidebarCollapsed: true, filter: 'group:工作', search: 'GitHub' })
+  await page.reload()
+  await expect(page.locator('.app')).toHaveClass(/sidebar-collapsed/)
+  await expect(page.getByRole('textbox', { name: '搜索令牌' })).toHaveValue('GitHub')
+  await expect(page.getByRole('navigation', { name: '令牌分组' }).getByRole('button', { name: '工作', exact: true })).toHaveClass(/active/)
+  await expect(page.locator('.token-card')).toHaveCount(1)
+  await page.getByRole('button', { name: '清除搜索', exact: true }).click()
+  await nav.getByRole('button', { name: '所有令牌', exact: true }).click()
+  await expect(page.locator('.token-card')).toHaveCount(6)
+  await page.getByRole('button', { name: '外观与背景', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await setSidebar(page, false)
+  await expectSavedSession(page, { sidebarCollapsed: false, filter: 'all', search: '' })
+  await page.reload()
+  await expect(page.getByRole('button', { name: '收起侧栏', exact: true })).toBeVisible()
+  await expect(page.locator('.app')).not.toHaveClass(/sidebar-collapsed/)
+})
+
+test('both sidebar modes remain usable across desktop and narrow viewports', async ({ page }) => {
+  test.setTimeout(60000)
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/?demo')
+  await expect(page.locator('.token-card')).toHaveCount(6)
+  for (const [width, height] of [[1180,800], [760,560], [480,800], [360,740]]) {
+    await page.setViewportSize({ width, height })
+    for (const collapsed of [false, true]) {
+      await setSidebar(page, collapsed)
+      await expectNoHorizontalOverflow(page)
+      await expect(page.getByRole('button', { name: '粘贴二维码', exact: true }).locator('svg')).toBeVisible()
+      await page.getByRole('navigation', { name: '令牌导航' }).getByRole('button', { name: '星标收藏', exact: true }).click()
+      await expect(page.locator('.token-card')).toHaveCount(2)
+      await page.getByRole('navigation', { name: '令牌分组' }).getByRole('button', { name: '工作', exact: true }).click()
+      await expect(page.locator('.token-card')).toHaveCount(3)
+      await page.getByRole('navigation', { name: '令牌导航' }).getByRole('button', { name: '所有令牌', exact: true }).click()
+      await expect(page.locator('.token-card')).toHaveCount(6)
+      await page.getByRole('button', { name: '添加令牌', exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      const dialog = await page.getByRole('dialog').boundingBox()
+      expect(dialog!.x).toBeGreaterThanOrEqual(0)
+      expect(dialog!.x + dialog!.width).toBeLessThanOrEqual(width + 1)
+      await page.keyboard.press('Escape')
+      await (await openSearch(page)).fill('GitHub')
+      await expect(page.locator('.token-card')).toHaveCount(1)
+      await page.getByRole('button', { name: '清除搜索', exact: true }).click()
+      await expect(page.locator('.token-card')).toHaveCount(6)
+      await expectNoHorizontalOverflow(page)
+      if (width === 360) await page.screenshot({ path: `../output/cream-mobile-${collapsed ? 'collapsed' : 'expanded'}.png`, fullPage: true, animations: 'disabled' })
+    }
+  }
+  await page.setViewportSize({ width: 1180, height: 800 })
+  await page.locator('.main-content').evaluate(el => el.scrollTop = 0)
+  await page.getByRole('button', { name: '展开侧栏', exact: true }).blur()
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  await page.screenshot({ path: '../output/cream-collapsed.png', fullPage: true, animations: 'disabled' })
+  expect(errors).toEqual([])
+})
+
+test('manual add, search, favorite, edit and delete on long content', async ({ page }) => {
+  await page.goto('/?demo')
+  await page.getByRole('button', { name: '添加令牌', exact: true }).click()
+  await page.getByRole('tab', { name: '手动输入', exact: true }).click()
+  const issuer = '很长的服务名称'.repeat(12)
+  const account = 'long-account-'.repeat(15) + '@example.test'
+  await page.getByPlaceholder('例如 Google、GitHub').fill(issuer)
+  await page.getByPlaceholder('邮箱或用户名').fill(account)
+  await page.getByPlaceholder('粘贴服务提供的验证密钥').fill('JBSWY3DPEHPK3PXP')
+  await page.getByPlaceholder('例如 工作、个人').fill('all')
+  await page.getByRole('button', { name: '高级选项' }).click()
+  await page.getByLabel('位数', { exact: true }).selectOption('8')
+  await page.getByLabel('刷新周期（秒）').fill('60')
+  await page.getByRole('dialog').getByRole('button', { name: '添加令牌', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.locator('.token-card')).toHaveCount(7)
+  await setSidebar(page, true)
+  await page.getByRole('navigation', { name: '令牌分组' }).getByRole('button', { name: 'all', exact: true }).click()
+  await expect(page.locator('.token-card')).toHaveCount(1)
+  for (const width of [1180, 760, 360]) {
+    await page.setViewportSize({ width, height: 740 })
+    await expectNoHorizontalOverflow(page)
+  }
+  await page.screenshot({ path: '../output/long-content-mobile.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 760, height: 560 })
+  await expectNoHorizontalOverflow(page)
+  await page.getByRole('button', { name: `收藏 ${issuer}`, exact: true }).click()
+  await expect(page.getByRole('button', { name: `取消星标 ${issuer}` })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: `${issuer} 更多操作` }).click()
+  await page.getByRole('button', { name: '编辑令牌', exact: true }).click()
+  await expect(page.getByPlaceholder('留空，保持原密钥')).toHaveValue('')
+  await page.getByPlaceholder('例如 Google、GitHub').fill('QA edited')
+  await page.getByRole('button', { name: '保存更改' }).click()
+  await (await openSearch(page)).fill('QA edited')
+  await expect(page.locator('.token-card')).toHaveCount(1)
+  await page.getByRole('button', { name: 'QA edited 更多操作' }).click()
+  await page.getByRole('button', { name: '删除令牌', exact: true }).click()
+  await page.getByRole('button', { name: '确认删除' }).click()
+  await expect(page.getByRole('heading', { name: '没有匹配的令牌' })).toBeVisible()
+})
+
+test('URI import previews account before saving and appearance can cancel or save', async ({ page }) => {
+  await page.goto('/?demo')
+  await page.getByRole('button', { name: '添加令牌', exact: true }).click()
+  await page.getByRole('textbox', { name: '令牌链接' }).fill('otpauth://totp/Test:alice%40example.test?secret=JBSWY3DPEHPK3PXP&issuer=Test')
+  await page.getByRole('button', { name: '识别链接' }).click()
+  await expect(page.locator('.import-preview')).toContainText('alice@example.test')
+  await expect(page.getByRole('dialog')).not.toContainText('JBSWY3DPEHPK3PXP')
+  await page.getByRole('button', { name: '确认导入' }).click()
+  await expect(page.locator('.token-card')).toHaveCount(7)
+  await page.getByRole('button', { name: '外观与背景' }).click()
+  await page.getByRole('button', { name: '方格', exact: true }).click()
+  await expect(page.locator('.wallpaper')).toHaveClass(/pattern-grid/)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.wallpaper')).toHaveClass(/pattern-dots/)
+  await page.getByRole('button', { name: '外观与背景' }).click()
+  await page.getByRole('button', { name: '波纹', exact: true }).click()
+  await page.getByRole('switch', { name: '界面动效' }).click()
+  await page.getByRole('button', { name: '保存设置' }).click()
+  await expect(page.locator('.wallpaper')).toHaveClass(/pattern-waves/)
+  await expect(page.locator('.app')).toHaveClass(/still/)
+})
+
+test('regular and anime themes preview, cancel and persist with close behavior', async ({ page }) => {
+  await page.goto('/?demo')
+  await expect(page.locator('.app')).toHaveClass(/theme-regular/)
+  await page.getByRole('button', { name: '外观与背景', exact: true }).click()
+  await expect(page.getByRole('switch', { name: '关闭窗口时收起到托盘' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: '二次元主题', exact: true }).click()
+  await expect(page.locator('.app')).toHaveClass(/theme-anime/)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.app')).toHaveClass(/theme-regular/)
+  await page.getByRole('button', { name: '外观与背景', exact: true }).click()
+  await page.getByRole('radio', { name: '二次元主题', exact: true }).click()
+  await page.getByRole('switch', { name: '关闭窗口时收起到托盘' }).click()
+  await page.getByRole('button', { name: '保存设置', exact: true }).click()
+  await expect(page.locator('.app')).toHaveClass(/theme-anime/)
+  for (const width of [1180, 760, 360]) {
+    await page.setViewportSize({ width, height: 800 })
+    for (const collapsed of [false, true]) {
+      await setSidebar(page, collapsed)
+      await expectNoHorizontalOverflow(page)
+    }
+  }
+  await page.setViewportSize({ width: 1180, height: 800 })
+  await page.screenshot({ path: '../output/anime-collapsed.png', fullPage: true, animations: 'disabled' })
+  await page.getByRole('button', { name: '外观与背景', exact: true }).click()
+  await expect(page.getByRole('radio', { name: '二次元主题', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('switch', { name: '关闭窗口时收起到托盘' })).toHaveAttribute('aria-checked', 'false')
+  await page.getByRole('radio', { name: '常规主题', exact: true }).click()
+  await page.getByRole('button', { name: '保存设置', exact: true }).click()
+  await expect(page.locator('.app')).toHaveClass(/theme-regular/)
+})

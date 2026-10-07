@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "LumaAuthenticator",
+  "outputfilename": "2FAManager",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "info": {
+    "companyName": "Luma",
+    "productName": "Luma 拾光验证器",
+    "productVersion": "0.3.0",
+    "copyright": "Luma",
+    "comments": "本地双重验证令牌管理器"
+  },
+  "author": {
+    "name": "",
+    "email": ""
+  }
+}

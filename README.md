@@ -1,0 +1,90 @@
+# Luma · 拾光验证器
+
+使用 Go、Wails 2、React 和 TypeScript 编写的 Windows 本地 2FA 令牌管理器。奶白色纹理、圆角模块、自绘标题栏与窗口边框，支持图片和静音循环视频背景。侧栏可以收起为图标栏，提供常规和可爱的二次元主题。
+
+[下载最新版本](https://github.com/MengStar-L/2FAManager/releases/latest) · [更新记录](CHANGELOG.md)
+
+## 使用
+
+从 Release 下载 Windows x64 EXE 直接运行，或下载 ZIP 解压后运行 `Luma.exe`。首次启动为空令牌库。从旧的本地版本升级时，先从托盘菜单退出旧版本，再启动新版。
+
+- 复制二维码截图，在应用内点击「粘贴二维码」或按 `Ctrl+V`，核对服务和账号后导入。
+- 可以上传二维码图片、粘贴 `otpauth://totp/…` 链接，或手动填写密钥。
+- 支持截图中的多个二维码；一批导入遇到无效或重复令牌时整批取消，避免部分成功造成混淆。
+- 点击验证码复制；支持收藏、搜索、分组、编辑和删除。
+- 在外观设置中选择本地图片或视频，调整背景强度、纹理和动效。背景文件复制到应用数据目录，删除原图不影响已保存背景。
+- 点缀色提供多种预设，也可通过调色盘或十六进制色值自定义；常规与二次元主题共用所选颜色，取消设置会恢复之前的外观。
+- 顶部使用搜索、粘贴二维码、添加三个图标按钮；点击搜索图标展开搜索框。
+- 普通窗口使用随屏幕缩放调整的圆角外轮廓；最大化和全屏时铺满屏幕，还原后恢复圆角。
+- 默认点击关闭或按 Alt+F4 后收起到系统托盘。点击托盘图标恢复窗口，右键菜单可显示窗口或彻底退出；设置中可关闭此行为。
+- 关闭时保存窗口大小、位置、最大化状态，以及侧栏、筛选和搜索状态，下次启动自动恢复。
+
+## 软件更新
+
+设置中的「软件更新」显示当前版本，支持手动检查、下载，以及「安装并重启」。默认启动后自动检查稳定版，每 6 小时再次检查；也可关闭自动检查。
+
+「自动更新」默认关闭。打开后会在后台下载新版本，**彻底退出时安装，下次启动生效**；点击关闭收起到托盘时不会安装或重启。设置中尚未保存的修改需要先保存或取消，才能手动安装并重启。
+
+更新只来自本项目的公开 GitHub Releases，无需 GitHub 登录。下载与安装均校验 SHA-256；替换程序前保留旧版本，安装失败会保留或回滚旧程序。程序目录需要可写；没有权限时会提示失败，不自动提权。更新不会迁移或删除令牌数据。
+
+支持标准 TOTP，SHA1 / SHA256 / SHA512、6 / 8 位、1–120 秒刷新周期。当前不支持 HOTP、Steam 专用格式和 Google Authenticator 批量迁移二维码。电脑时间需要准确。
+
+## 本地数据
+
+数据保存在 `%APPDATA%\LumaAuthenticator`：
+
+- `vault.dat`：Windows DPAPI 加密的完整令牌库。
+- `settings.json`：外观主题、点缀色、背景和关闭行为设置。
+- `session.json`：窗口和界面状态。
+- `bg-*`：已导入的背景媒体。
+
+令牌密钥不进入浏览器 localStorage，不上传到服务器，二维码在本机识别。更新检查只请求本项目的公开版本信息和安装文件，不发送令牌、账号、背景或设置。列表接口只返回账号信息与当前验证码。损坏或无法解密的令牌库不会被自动覆盖。单实例启动避免多个窗口同时写入同一令牌库。
+
+DPAPI 绑定当前 Windows 用户，复制 `vault.dat` 到其他电脑或用户不等于可恢复备份；请保留原服务的恢复码。此版本没有独立主密码或跨设备备份功能。剪贴板只在用户触发粘贴时读取，复制的验证码不会主动清空。
+
+图片支持 PNG / JPEG / WebP / GIF，视频支持 MP4 / WebM（播放能力取决于 WebView2 支持的编码）。背景文件上限 100 MB，二维码图片上限 20 MB / 2500 万像素。
+
+## 开发与构建
+
+需要 Windows、Go 1.26+、Node.js 24+、Wails CLI 2.15+ 和 Microsoft Edge WebView2。
+
+```powershell
+cd frontend
+npm ci
+npm run build
+cd ..
+go test ./...
+go vet ./...
+wails build -s
+```
+
+使用 `wails dev` 运行桌面开发版本。前端单独运行 `npm run dev -- --host 127.0.0.1`；追加 `?demo` 可查看明确标注的示例令牌界面，示例数据只在内存中，不写入真实令牌库。不要将开发服务暴露到公网。
+
+前端构建会替换嵌入资源，请按以上顺序执行，不要同时运行 Vite 构建和 Go 编译。
+
+发布包可通过 `powershell -File scripts/release.ps1` 生成。版本号统一读取 `wails.json`，更新源读取 `build/repository.json`。输出位于 `output/releases/v<版本>/`，包含 `Luma-<版本>-windows-amd64.exe`、ZIP 和 `SHA256SUMS`。Git 标签使用 `v<版本>`；Release 必须同时上传 EXE 和校验文件，应用只接收正式稳定版。
+
+## 图标与字体
+
+二次元猫咪钥匙图标使用官方生图生成，原图保存在 `build/appicon-source.png`，提示词保存在 `build/appicon-prompt.txt`。在 `frontend` 执行 `npm run icon` 会从原图生成应用 PNG、前端图标和包含 16–256 像素多个尺寸的 Windows ICO；不会重新调用生图服务。
+
+字体随应用离线打包：Nunito 和 [ZCOOL KuaiLe](https://github.com/googlefonts/zcool-kuaile)，许可证保存在 `frontend/src/assets/fonts`。验证码保持易读的数字字体。
+
+## 验证
+
+`frontend` 目录下：
+
+```powershell
+npm run test:ui
+npm run test:native
+```
+
+界面测试使用已安装的 Microsoft Edge，覆盖空状态、导入预览、手动添加、编辑删除、长内容、分组、图标搜索、两套主题、焦点恢复和 360–1180 像素宽度。原生测试须先构建 EXE；它在 `output/native-qa` 中编译并启动独立测试副本，为 WebView2 临时启用本机调试连接。测试使用相同的应用源码和前端资源，校验二维码导入、TOTP、加密文件、视频背景、关闭到托盘、第二次启动唤起，以及窗口位置、尺寸、最大化与界面状态恢复；不改动正式 EXE、项目依赖或系统剪贴板。
+
+Go 测试覆盖 RFC 6238 标准向量、截图/多码识别、DIB 图片转换、真实 DPAPI 加解密、原子写入失败保护、关闭行为、状态合并保存与屏幕外窗口修正。当前尚未自动操作真实剪贴板来执行完整截图粘贴流程。
+
+## 实现参考
+
+- [Wails 窗口选项](https://v2.wails.io/docs/reference/options/)
+- [ZXing Go 二维码识别](https://github.com/makiuchi-d/gozxing)
+- [RFC 6238 TOTP](https://www.rfc-editor.org/rfc/rfc6238)

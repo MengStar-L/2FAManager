@@ -1,0 +1,14 @@
+build/bin
+node_modules
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+frontend/package.json.md5
+output
+.env
+.env.*
+*.log
+*.syso
+vault.dat
+settings.json
+session.json
