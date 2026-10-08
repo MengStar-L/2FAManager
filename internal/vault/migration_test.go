@@ -192,7 +192,7 @@ func TestMigrationRejectsUnsupportedMalformedAndOversizeInputs(t *testing.T) {
 		"wrong-token-wire":          migrationNumber(1, 0),
 		"wrong-metadata-wire":       append(migrationBytes(1, validToken), migrationBytes(2, []byte{1})...),
 		"duplicate-version":         append(append([]byte(nil), validPayload...), migrationNumber(2, 1)...),
-		"unsupported-version":       append(migrationBytes(1, validToken), migrationNumber(2, 2)...),
+		"unsupported-version":       append(migrationBytes(1, validToken), migrationNumber(2, 3)...),
 		"oversized-int32":           append(migrationBytes(1, validToken), migrationNumber(3, 1<<40)...),
 		"negative-size":             migrationFixturePayload(-1, 0, 42, validToken),
 		"too-many-pages":            migrationFixturePayload(101, 0, 42, validToken),
@@ -383,4 +383,30 @@ func FuzzMigrationPayload(f *testing.F) {
 			}
 		}
 	})
+}
+
+func TestMigrationVersionTwoCompatibility(t *testing.T) {
+	for _, size := range []int32{1, 2} {
+		store, _ := newTestStore(t)
+		var uris []string
+		for index := int32(0); index < size; index++ {
+			payload := migrationFixturePayload(size, index, 42, migrationSyntheticToken(int(index*2+1)), migrationSyntheticToken(int(index*2+2)))
+			payload = bytes.Replace(payload, migrationNumber(2, 1), migrationNumber(2, 2), 1)
+			uri := migrationFixtureURI(payload)
+			chunk, err := ParseImportURI(uri)
+			if err != nil || len(chunk.Inputs) != 2 || chunk.Migration.Index != int(index) || chunk.Migration.Size != int(size) {
+				t.Fatalf("version 2 page %d/%d did not parse: %v", index, size, err)
+			}
+			uris = append(uris, uri)
+		}
+		if size == 2 {
+			if _, err := store.ImportURIs(uris[:1]); err == nil {
+				t.Fatal("version 2 incomplete batch accepted")
+			}
+		}
+		added, err := store.ImportURIs(uris)
+		if err != nil || len(added) != int(size*2) {
+			t.Fatalf("version 2 complete batch failed: %v", err)
+		}
+	}
 }

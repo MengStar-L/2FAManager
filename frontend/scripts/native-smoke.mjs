@@ -429,12 +429,12 @@ async function verifyMigrationImport(page, dataDirectory) {
     }
   };
 
-  const single = await previewFixture('migration-single.png');
+  const single = await previewFixture('migration-v2.png');
   check(single.length === 2 && single.every(item => item.migration?.size === 1 && item.migration.index === 0) && single[0].uri === single[1].uri, 'Single-page Google transfer did not retain shared source metadata');
   await assertIsolatedState(page, dataDirectory, 0);
   check(!(await stat(path.join(dataDirectory, 'vault.dat')).catch(() => null)), 'Preview created an encrypted vault before the import was confirmed');
   await page.locator('.toolbar').getByRole('button', { name: '添加令牌', exact: true }).click();
-  await page.getByLabel('二维码图片', { exact: true }).setInputFiles(path.join(fixtureDirectory, 'migration-single.png'));
+  await page.getByLabel('二维码图片', { exact: true }).setInputFiles(path.join(fixtureDirectory, 'migration-v2.png'));
   await page.locator('.migration-progress').filter({ hasText: '已读取 1/1 张二维码' }).waitFor();
   check(await page.locator('.import-preview').count() === 2, 'Native Google image upload did not display both accounts');
   check(await page.getByRole('button', { name: '确认导入', exact: true }).isEnabled(), 'Native Google image preview did not enable complete-batch import');

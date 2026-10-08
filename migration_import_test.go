@@ -220,3 +220,15 @@ func TestMigrationAppImportIsCompleteAtomicAndPreviewIsReadOnly(t *testing.T) {
 		t.Fatal("migration tokens did not survive vault reopen")
 	}
 }
+
+func TestMigrationVersionTwoImagePreview(t *testing.T) {
+	uri := migrationFixtureURI(1, 0, 2026100801, migrationFixtureAccounts()...)
+	parsed, _ := url.Parse(uri)
+	payload, _ := base64.StdEncoding.DecodeString(parsed.Query().Get("data"))
+	payload = bytes.Replace(payload, migrationFixtureVarint(nil, 2, 1), migrationFixtureVarint(nil, 2, 2), 1)
+	uri = "otpauth-migration://offline?data=" + url.QueryEscape(base64.StdEncoding.EncodeToString(payload))
+	previews, err := NewApp().PreviewImage(base64.StdEncoding.EncodeToString(pngBytes(t, qrImage(t, uri))))
+	if err != nil || len(previews) != 2 {
+		t.Fatalf("version 2 image preview failed: %v", err)
+	}
+}

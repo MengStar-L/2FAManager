@@ -189,8 +189,8 @@ func parseMigrationPayload(payload []byte) (ImportChunk, error) {
 	if len(chunk.Inputs) == 0 {
 		return ImportChunk{}, errors.New("Google 验证器迁移二维码中没有令牌")
 	}
-	if metadata[2] != 0 && metadata[2] != 1 {
-		return ImportChunk{}, errors.New("暂不支持此 Google 验证器迁移版本，请重新导出")
+	if metadata[2] != 0 && metadata[2] != 1 && metadata[2] != 2 {
+		return ImportChunk{}, errors.New("暂不支持此 Google 验证器迁移版本，请更新程序后重试")
 	}
 	size, index, id := int(metadata[3]), int(metadata[4]), metadata[5]
 	if size == 0 {

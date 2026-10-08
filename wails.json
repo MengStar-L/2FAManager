@@ -9,7 +9,7 @@
   "info": {
     "companyName": "Luma",
     "productName": "Luma 拾光验证器",
-    "productVersion": "0.3.2",
+    "productVersion": "0.3.3",
     "copyright": "Luma",
     "comments": "本地双重验证令牌管理器"
   },
