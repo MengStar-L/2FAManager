@@ -179,29 +179,26 @@ func (s *Store) Add(input TokenInput) (Token, error) {
 }
 
 func (s *Store) ImportURI(uri string) (Token, error) {
-	result, err := s.ImportURIs([]string{uri})
+	chunks, err := ParseImportURIs([]string{uri}, true)
 	if err != nil {
 		return Token{}, err
 	}
-	return result[0], nil
+	if len(chunks) != 1 || len(chunks[0].Inputs) != 1 {
+		return Token{}, errors.New("此二维码包含多个令牌，请使用批量导入")
+	}
+	return s.Add(chunks[0].Inputs[0])
 }
 
 // ImportURIs imports a whole QR batch or nothing. Invalid inputs and duplicates
 // (against the vault or within the batch) leave both disk and memory untouched.
 func (s *Store) ImportURIs(uris []string) ([]Token, error) {
-	if len(uris) == 0 {
-		return nil, errors.New("没有可导入的令牌")
+	chunks, err := ParseImportURIs(uris, true)
+	if err != nil {
+		return nil, err
 	}
-	if len(uris) > maxTokens {
-		return nil, errors.New("一次导入的令牌过多")
-	}
-	inputs := make([]TokenInput, len(uris))
-	for i, uri := range uris {
-		input, err := PreviewURI(uri)
-		if err != nil {
-			return nil, fmt.Errorf("第 %d 个令牌: %w", i+1, err)
-		}
-		inputs[i] = input
+	inputs := make([]TokenInput, 0)
+	for _, chunk := range chunks {
+		inputs = append(inputs, chunk.Inputs...)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

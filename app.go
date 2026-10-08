@@ -187,7 +187,7 @@ func (a *App) ImportTokens(uris []string) ([]vault.Token, error) {
 		return nil, err
 	}
 	if len(uris) == 0 || len(uris) > 100 {
-		return nil, errors.New("每次请选择 1–100 个令牌")
+		return nil, errors.New("每次最多导入 100 个令牌，请先识别令牌或 Google 验证器迁移二维码")
 	}
 	return a.store.ImportURIs(uris)
 }
@@ -241,5 +241,5 @@ func (a *App) PreviewClipboard() ([]ImportPreview, error) {
 	if data.Text != "" {
 		return a.PreviewText(data.Text)
 	}
-	return nil, errors.New("剪贴板里没有二维码图片或 otpauth 链接，请先复制截图")
+	return nil, errors.New("剪贴板里没有令牌二维码、Google 验证器迁移二维码或链接，请先复制截图")
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -22,9 +21,10 @@ import (
 const maxQRBytes = 20 << 20
 
 type ImportPreview struct {
-	Issuer  string `json:"issuer"`
-	Account string `json:"account"`
-	URI     string `json:"uri"`
+	Issuer    string                `json:"issuer"`
+	Account   string                `json:"account"`
+	URI       string                `json:"uri"`
+	Migration *vault.MigrationBatch `json:"migration,omitempty"`
 }
 
 func (a *App) PreviewText(text string) ([]ImportPreview, error) {
@@ -33,17 +33,26 @@ func (a *App) PreviewText(text string) ([]ImportPreview, error) {
 	}
 	lines := strings.Fields(text)
 	if len(lines) == 0 || len(lines) > 100 {
-		return nil, errors.New("请输入 1–100 条 otpauth 令牌链接，每行一条")
+		return nil, errors.New("请输入 1–100 条令牌链接或 Google 验证器迁移链接，每行一条")
 	}
-	result := make([]ImportPreview, 0, len(lines))
-	for i, line := range lines {
-		input, err := vault.PreviewURI(line)
-		if err != nil {
-			return nil, fmt.Errorf("第 %d 条链接：%w", i+1, err)
+	return previewImportURIs(lines)
+}
+
+// Keep the source QR intact. A Google transfer page can contain several
+// accounts, and its batch metadata must survive until the entire import is
+// validated by the vault.
+func previewImportURIs(uris []string) ([]ImportPreview, error) {
+	chunks, err := vault.ParseImportURIs(uris, false)
+	if err != nil {
+		return nil, err
+	}
+	previews := make([]ImportPreview, 0, len(chunks))
+	for _, chunk := range chunks {
+		for _, input := range chunk.Inputs {
+			previews = append(previews, ImportPreview{Issuer: input.Issuer, Account: input.Account, URI: chunk.URI, Migration: chunk.Migration})
 		}
-		result = append(result, ImportPreview{Issuer: input.Issuer, Account: input.Account, URI: line})
 	}
-	return result, nil
+	return previews, nil
 }
 
 func (a *App) PreviewImage(encoded string) ([]ImportPreview, error) {
@@ -92,29 +101,23 @@ func previewImageBytes(data []byte) ([]ImportPreview, error) {
 		}
 		results = []*gozxing.Result{one}
 	}
-	previews := make([]ImportPreview, 0, len(results))
+	if len(results) > 100 {
+		return nil, errors.New("一张图片最多识别 100 个二维码，请分批导入")
+	}
+	uris := make([]string, 0, len(results))
 	seen := make(map[string]bool)
-	var tokenErr error
 	for _, result := range results {
 		uri := strings.TrimSpace(result.GetText())
 		if !strings.HasPrefix(strings.ToLower(uri), "otpauth") {
 			continue
 		}
-		input, parseErr := vault.PreviewURI(uri)
-		if parseErr != nil {
-			tokenErr = parseErr
-			continue
-		}
 		if !seen[uri] {
-			previews = append(previews, ImportPreview{Issuer: input.Issuer, Account: input.Account, URI: uri})
+			uris = append(uris, uri)
 			seen[uri] = true
 		}
 	}
-	if tokenErr != nil {
-		return nil, tokenErr
+	if len(uris) == 0 {
+		return nil, errors.New("识别到的二维码不是 TOTP 令牌或 Google 验证器迁移二维码")
 	}
-	if len(previews) == 0 {
-		return nil, errors.New("识别到的二维码不是 TOTP 令牌二维码")
-	}
-	return previews, nil
+	return previewImportURIs(uris)
 }

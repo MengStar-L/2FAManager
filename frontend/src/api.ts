@@ -3,7 +3,7 @@ export type TokenInput = { issuer: string; account: string; secret: string; grou
 export type Settings = { backgroundType: 'pattern' | 'image' | 'video'; pattern: 'dots' | 'grid' | 'waves'; backgroundUrl: string; backgroundName: string; opacity: number; motion: boolean; theme: 'regular' | 'anime'; closeToTray: boolean; accentColor: string; checkUpdatesAutomatically: boolean; updateAutomatically: boolean }
 export type UpdateStatus = { currentVersion: string; latestVersion: string; phase: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'upToDate' | 'error'; progress: number; releaseUrl: string; message: string; lastChecked: string; downloadedBytes: number; totalBytes: number }
 export type SessionState = { sidebarCollapsed: boolean; filter: string; search: string }
-export type ImportPreview = { issuer: string; account: string; uri: string }
+export type ImportPreview = { issuer: string; account: string; uri: string; migration?: { id: string; size: number; index: number } }
 export type State = { tokens: Token[]; settings: Settings; session: SessionState; dataPath: string; warning?: string }
 export const defaultSettings: Settings = { backgroundType: 'pattern', pattern: 'dots', backgroundUrl: '', backgroundName: '', opacity: 0.18, motion: true, theme: 'regular', closeToTray: true, accentColor: '#8773b7', checkUpdatesAutomatically: true, updateAutomatically: false }
 export const defaultUpdateStatus: UpdateStatus = { currentVersion: '', latestVersion: '', phase: 'idle', progress: 0, releaseUrl: '', message: '', lastChecked: '', downloadedBytes: 0, totalBytes: 0 }
@@ -14,7 +14,7 @@ type RuntimeEvents = { (event: 'app:warning', callback: (message: string) => voi
 declare global { interface Window { go?: { main?: { App?: Bridge } }; runtime?: { WindowMinimise(): void; WindowToggleMaximise(): void; WindowIsMaximised?(): Promise<boolean>; EventsOn?: RuntimeEvents; Quit(): void } } }
 export const native = Boolean(window.go?.main?.App)
 let mockSettings = { ...defaultSettings }
-let mockUpdate: UpdateStatus = { ...defaultUpdateStatus, currentVersion: '0.3.1' }
+let mockUpdate: UpdateStatus = { ...defaultUpdateStatus, currentVersion: '0.3.2' }
 let mockDownloadTimer: ReturnType<typeof setInterval> | null = null
 const mockUpdateListeners = new Set<(status: UpdateStatus) => void>()
 function publishMockUpdate(status: Partial<UpdateStatus>) { mockUpdate = { ...mockUpdate, ...status }; for (const listener of mockUpdateListeners) listener({ ...mockUpdate }); return { ...mockUpdate } }
@@ -71,7 +71,7 @@ const mock: Bridge = {
   async CloseWindow() { throw new Error('窗口和托盘功能请在桌面应用中使用。') },
   async QuitApp() { throw new Error('退出功能请在桌面应用中使用。') },
   async GetUpdateStatus() { return { ...mockUpdate } },
-  async CheckForUpdates() { requireDemo(); if (mockUpdate.phase === 'downloading' || mockUpdate.phase === 'ready') return { ...mockUpdate }; publishMockUpdate({ phase: 'checking', message: '' }); await new Promise(resolve => setTimeout(resolve, 320)); const phase = mockUpdate.currentVersion === '0.3.2' ? 'upToDate' : 'available'; const status = publishMockUpdate({ phase, latestVersion: '0.3.2', lastChecked: new Date().toISOString(), releaseUrl: '', message: '演示更新，不会下载或安装真实文件。' }); if (phase === 'available' && mockSettings.updateAutomatically) return mock.DownloadUpdate(); return status },
+  async CheckForUpdates() { requireDemo(); if (mockUpdate.phase === 'downloading' || mockUpdate.phase === 'ready') return { ...mockUpdate }; publishMockUpdate({ phase: 'checking', message: '' }); await new Promise(resolve => setTimeout(resolve, 320)); const phase = mockUpdate.currentVersion === '0.3.3' ? 'upToDate' : 'available'; const status = publishMockUpdate({ phase, latestVersion: '0.3.3', lastChecked: new Date().toISOString(), releaseUrl: '', message: '演示更新，不会下载或安装真实文件。' }); if (phase === 'available' && mockSettings.updateAutomatically) return mock.DownloadUpdate(); return status },
   async DownloadUpdate() { requireDemo(); if (mockDownloadTimer || mockUpdate.phase === 'ready') return { ...mockUpdate }; if (!mockUpdate.latestVersion || mockUpdate.latestVersion === mockUpdate.currentVersion) throw new Error('请先检查更新。'); publishMockUpdate({ phase: 'downloading', progress: 0, downloadedBytes: 0, totalBytes: 24 * 1024 * 1024, message: '正在模拟下载…' }); mockDownloadTimer = setInterval(() => { const progress = Math.min(100, mockUpdate.progress + 12.5); publishMockUpdate({ phase: progress === 100 ? 'ready' : 'downloading', progress, downloadedBytes: mockUpdate.totalBytes * progress / 100, message: progress === 100 ? '演示更新已就绪，不会修改真实文件。' : '正在模拟下载…' }); if (progress === 100 && mockDownloadTimer) { clearInterval(mockDownloadTimer); mockDownloadTimer = null } }, 180); return { ...mockUpdate } },
   async InstallUpdate() { requireDemo(); if (mockUpdate.phase !== 'ready') throw new Error('更新尚未下载完成。'); publishMockUpdate({ currentVersion: mockUpdate.latestVersion, phase: 'upToDate', progress: 0, downloadedBytes: 0, totalBytes: 0, message: '演示更新已完成，浏览器不会重启。' }) },
   async OpenReleasePage() { throw new Error('发布说明请在桌面应用中打开。') },

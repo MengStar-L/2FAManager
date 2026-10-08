@@ -47,7 +47,7 @@ function safeMessage(error) {
   for (const secret of secrets) {
     if (secret) message = message.split(secret).join('[redacted fixture data]');
   }
-  return message.replace(/otpauth:\/\/\S+/gi, '[redacted fixture URI]');
+  return message.replace(/otpauth(?:-migration)?:\/\/\S+/gi, '[redacted fixture URI]');
 }
 
 async function freeLoopbackPort() {
@@ -388,6 +388,87 @@ function decodeBase32(value) {
   return Buffer.from(result);
 }
 
+function encodeFixtureBase32(value) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let accumulator = 0;
+  let available = 0;
+  let encoded = '';
+  for (const byte of Buffer.from(value, 'utf8')) {
+    accumulator = (accumulator << 8) | byte;
+    available += 8;
+    while (available >= 5) {
+      available -= 5;
+      encoded += alphabet[(accumulator >>> available) & 31];
+    }
+    accumulator &= (1 << available) - 1;
+  }
+  if (available) encoded += alphabet[(accumulator << (5 - available)) & 31];
+  return encoded;
+}
+
+async function verifyMigrationImport(page, dataDirectory) {
+  const fixtureDirectory = path.join(root, 'frontend', 'tests', 'fixtures');
+  const previewFixture = async name => {
+    const bytes = await readFile(path.join(fixtureDirectory, name));
+    const result = await bridge(page, 'PreviewImage', `data:image/png;base64,${bytes.toString('base64')}`);
+    for (const preview of result) secrets.add(preview.uri);
+    return result;
+  };
+  const secretByIssuer = {
+    OpenAI: encodeFixtureBase32('migration-test-key-01'),
+    Google: encodeFixtureBase32('migration-test-key-02'),
+  };
+  for (const secret of Object.values(secretByIssuer)) secrets.add(secret);
+  const checkImported = async tokens => {
+    check(tokens.length === 2, 'Google migration did not import exactly two synthetic accounts');
+    for (const token of tokens) {
+      check(secretByIssuer[token.issuer], 'Migration changed the synthetic issuer');
+      await assertNativeCode(page, secretByIssuer[token.issuer], token.id);
+      if (token.issuer === 'OpenAI') check(token.algorithm === 'SHA1' && token.digits === 6 && token.group === 'OpenAI', 'Migrated OpenAI account lost its algorithm, digit count or group');
+      if (token.issuer === 'Google') check(token.algorithm === 'SHA256' && token.digits === 8, 'Migrated account lost SHA256/eight-digit settings');
+    }
+  };
+
+  const single = await previewFixture('migration-single.png');
+  check(single.length === 2 && single.every(item => item.migration?.size === 1 && item.migration.index === 0) && single[0].uri === single[1].uri, 'Single-page Google transfer did not retain shared source metadata');
+  await assertIsolatedState(page, dataDirectory, 0);
+  check(!(await stat(path.join(dataDirectory, 'vault.dat')).catch(() => null)), 'Preview created an encrypted vault before the import was confirmed');
+  await page.locator('.toolbar').getByRole('button', { name: '添加令牌', exact: true }).click();
+  await page.getByLabel('二维码图片', { exact: true }).setInputFiles(path.join(fixtureDirectory, 'migration-single.png'));
+  await page.locator('.migration-progress').filter({ hasText: '已读取 1/1 张二维码' }).waitFor();
+  check(await page.locator('.import-preview').count() === 2, 'Native Google image upload did not display both accounts');
+  check(await page.getByRole('button', { name: '确认导入', exact: true }).isEnabled(), 'Native Google image preview did not enable complete-batch import');
+  await page.getByRole('button', { name: '确认导入', exact: true }).click();
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  const imported = await bridge(page, 'GetTokens');
+  await checkImported(imported);
+  passed('native Google migration image-upload UI previews both accounts and confirms through the real Wails bridge');
+  const encrypted = await readFile(path.join(dataDirectory, 'vault.dat'));
+  await expectRejected(page, 'ImportTokens', single.map(item => item.uri));
+  check(encrypted.equals(await readFile(path.join(dataDirectory, 'vault.dat'))), 'Repeated Google transfer changed the existing vault');
+  for (const token of imported) await bridge(page, 'DeleteToken', token.id);
+  await assertIsolatedState(page, dataDirectory, 0);
+  passed('native Google migration QR imports multiple accounts once and matches independent SHA1/SHA256 TOTP');
+
+  const first = await previewFixture('migration-page-1.png');
+  const second = await previewFixture('migration-page-2.png');
+  check(first.length === 1 && second.length === 1 && first[0].migration?.size === 2 && first[0].migration.index === 0 && second[0].migration?.index === 1 && first[0].migration.id === second[0].migration.id, 'Native Google migration pages lost their batch identity');
+  const beforeIncomplete = await readFile(path.join(dataDirectory, 'vault.dat'));
+  await expectRejected(page, 'ImportTokens', [first[0].uri, first[0].uri]);
+  check(beforeIncomplete.equals(await readFile(path.join(dataDirectory, 'vault.dat'))), 'Incomplete Google transfer changed the vault');
+  await assertIsolatedState(page, dataDirectory, 0);
+  const pages = await bridge(page, 'ImportTokens', [second[0].uri, first[0].uri, first[0].uri]);
+  await checkImported(pages);
+  for (const token of pages) await bridge(page, 'DeleteToken', token.id);
+  await assertIsolatedState(page, dataDirectory, 0);
+  passed('native Google migration pages import together in either order; repeated pages are idempotent and missing pages are rejected');
+
+  const unsupported = await readFile(path.join(fixtureDirectory, 'migration-unsupported.png'));
+  await expectRejected(page, 'PreviewImage', `data:image/png;base64,${unsupported.toString('base64')}`);
+  await assertIsolatedState(page, dataDirectory, 0);
+  passed('native Google migration rejects a mixed TOTP/HOTP page without partial import');
+}
+
 function codeAt(secret, token, unixMilliseconds) {
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(Math.floor(unixMilliseconds / 1000 / token.period)));
@@ -489,6 +570,8 @@ try {
   passed('real Wails bridge and initially empty isolated vault');
   await assertVideoAndRange(page, settings, video);
   passed('native WebView2 video playback and HTTP 206 byte ranges');
+
+  await verifyMigrationImport(page, dataDirectory);
 
   const previews = await bridge(page, 'PreviewImage', `data:image/png;base64,${png.toString('base64')}`);
   check(previews.length === 1 && previews[0].uri.startsWith('otpauth://'), 'Synthetic QR fixture did not produce exactly one TOTP preview');

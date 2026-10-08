@@ -4,6 +4,7 @@ export namespace main {
 	    issuer: string;
 	    account: string;
 	    uri: string;
+	    migration?: vault.MigrationBatch;
 	
 	    static createFrom(source: any = {}) {
 	        return new ImportPreview(source);
@@ -14,7 +15,26 @@ export namespace main {
 	        this.issuer = source["issuer"];
 	        this.account = source["account"];
 	        this.uri = source["uri"];
+	        this.migration = this.convertValues(source["migration"], vault.MigrationBatch);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SessionState {
 	    sidebarCollapsed: boolean;
@@ -135,6 +155,22 @@ export namespace main {
 
 export namespace vault {
 	
+	export class MigrationBatch {
+	    id: string;
+	    size: number;
+	    index: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MigrationBatch(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.size = source["size"];
+	        this.index = source["index"];
+	    }
+	}
 	export class Token {
 	    id: string;
 	    issuer: string;

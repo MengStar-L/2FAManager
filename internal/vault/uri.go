@@ -19,7 +19,7 @@ func PreviewURI(raw string) (TokenInput, error) {
 		return TokenInput{}, errors.New("二维码中的令牌链接格式无效")
 	}
 	if strings.EqualFold(u.Scheme, "otpauth-migration") {
-		return TokenInput{}, errors.New("暂不支持 Google 验证器批量迁移二维码，请使用服务提供的单个 TOTP 二维码")
+		return TokenInput{}, errors.New("Google 验证器迁移二维码请通过批量导入入口识别")
 	}
 	if !strings.EqualFold(u.Scheme, "otpauth") {
 		return TokenInput{}, errors.New("未找到有效的 otpauth 令牌链接")
