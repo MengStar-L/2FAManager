@@ -17,6 +17,8 @@ export function DeleteToken(arg1:string):Promise<void>;
 
 export function DownloadUpdate():Promise<main.UpdateStatus>;
 
+export function ExportTokens():Promise<string>;
+
 export function GetState():Promise<main.State>;
 
 export function GetTokens():Promise<Array<vault.Token>>;

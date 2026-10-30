@@ -30,6 +30,10 @@ export function DownloadUpdate() {
   return window['go']['main']['App']['DownloadUpdate']();
 }
 
+export function ExportTokens() {
+  return window['go']['main']['App']['ExportTokens']();
+}
+
 export function GetState() {
   return window['go']['main']['App']['GetState']();
 }

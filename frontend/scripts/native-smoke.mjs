@@ -443,6 +443,10 @@ async function verifyMigrationImport(page, dataDirectory) {
   const imported = await bridge(page, 'GetTokens');
   await checkImported(imported);
   passed('native Google migration image-upload UI previews both accounts and confirms through the real Wails bridge');
+  const exported = await bridge(page, 'ExportTokens');
+  check(typeof exported === 'string' && exported.split(/\r?\n/).length === 2, 'Native export did not return one standard URI per token');
+  check(exported.includes(secretByIssuer.OpenAI) && exported.includes(secretByIssuer.Google) && exported.startsWith('otpauth://totp/'), 'Native export is missing the imported 2FA keys or standard URI prefix');
+  passed('native 2FA export returns importable long strings without exposing secrets in token metadata');
   const encrypted = await readFile(path.join(dataDirectory, 'vault.dat'));
   await expectRejected(page, 'ImportTokens', single.map(item => item.uri));
   check(encrypted.equals(await readFile(path.join(dataDirectory, 'vault.dat'))), 'Repeated Google transfer changed the existing vault');

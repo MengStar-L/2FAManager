@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -150,6 +151,28 @@ func (s *Store) List() ([]Token, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return tokensAt(s.records, s.now().Unix())
+}
+
+// ExportURIs returns all saved tokens as newline-separated standard otpauth
+// links. It is deliberately a single string so it can be copied as a portable
+// backup and pasted back into the batch import dialog. The result contains the
+// encrypted vault's secrets in plaintext by design; callers must not log or
+// persist it outside an explicitly chosen export destination.
+func (s *Store) ExportURIs() (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.records) == 0 {
+		return "", nil
+	}
+	uris := make([]string, 0, len(s.records))
+	for _, record := range s.records {
+		uri, err := ExportURI(record.TokenInput)
+		if err != nil {
+			return "", errors.New("令牌库中存在无效令牌，无法导出")
+		}
+		uris = append(uris, uri)
+	}
+	return strings.Join(uris, "\n"), nil
 }
 
 // Account returns only the selected account metadata, without calculating a

@@ -7,6 +7,29 @@ import (
 	"strings"
 )
 
+// ExportURI returns a standard otpauth URI for a saved TOTP token. The URI
+// intentionally contains the secret because it is the portable backup format;
+// callers must treat the returned string like a password and never log it.
+func ExportURI(input TokenInput) (string, error) {
+	input, err := normalize(input)
+	if err != nil {
+		return "", err
+	}
+	label := input.Account
+	if input.Issuer != "" {
+		label = input.Issuer + ":" + input.Account
+	}
+	values := url.Values{
+		"secret":    {input.Secret},
+		"issuer":    {input.Issuer},
+		"algorithm": {input.Algorithm},
+		"digits":    {strconv.Itoa(input.Digits)},
+		"period":    {strconv.Itoa(input.Period)},
+	}
+	u := url.URL{Scheme: "otpauth", Host: "totp", Path: "/" + label, RawQuery: values.Encode()}
+	return u.String(), nil
+}
+
 // PreviewURI validates an otpauth URI without saving it. The returned input
 // contains a secret, so callers must not log it or put it in a token-list DTO.
 func PreviewURI(raw string) (TokenInput, error) {

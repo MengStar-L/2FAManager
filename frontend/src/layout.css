@@ -60,9 +60,9 @@
 .group-nav small { margin-left: auto; }
 .group-initial { display: none; }
 .sidebar-bottom { display: flex; flex-direction: column; flex-shrink: 0; gap: 5px; margin-top: auto; padding-top: 16px; }
-.appearance-link, .help-link { min-height: 42px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; background: transparent; padding: 10px 12px; border-radius: 13px; color: var(--ui-text); font-size: 12px; }
-.appearance-link:hover, .help-link:hover { background: #f4efe8; }
-.appearance-link svg, .help-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+.appearance-link, .help-link, .export-link { min-height: 42px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; background: transparent; padding: 10px 12px; border-radius: 13px; color: var(--ui-text); font-size: 12px; }
+.appearance-link:hover, .help-link:hover, .export-link:hover { background: #f4efe8; }
+.appearance-link svg, .help-link svg, .export-link svg { width: 18px; height: 18px; flex-shrink: 0; }
 .appearance-link > svg:last-child { display: none; }
 .main-content { height: 100%; min-height: 0; min-width: 0; padding: 4px 8px 10px; }
 .toolbar { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 11px; margin: 0 0 22px; flex-shrink: 0; min-height: 58px; }
@@ -125,7 +125,7 @@
 .sidebar-collapsed .brand { flex: none; justify-content: center; }
 .sidebar-collapsed .brand-label, .sidebar-collapsed .nav-text, .sidebar-collapsed .main-nav b, .sidebar-collapsed .group-nav small, .sidebar-collapsed .group-label { display: none; }
 .sidebar-collapsed .sidebar-toggle { width: 38px; }
-.sidebar-collapsed .main-nav button, .sidebar-collapsed .group-nav button, .sidebar-collapsed .appearance-link, .sidebar-collapsed .help-link { padding: 11px 0; justify-content: center; gap: 0; }
+.sidebar-collapsed .main-nav button, .sidebar-collapsed .group-nav button, .sidebar-collapsed .appearance-link, .sidebar-collapsed .help-link, .sidebar-collapsed .export-link { padding: 11px 0; justify-content: center; gap: 0; }
 .sidebar-collapsed .group-nav { margin-top: 18px; padding-top: 5px; border: 0; }
 .sidebar-collapsed .group-dot { display: none; }
 .sidebar-collapsed .group-initial { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 9px; background: rgb(var(--ui-surface-rgb) / 0.502); font-size: 12px; }
@@ -136,7 +136,7 @@
 .theme-anime .brand strong { color: var(--ui-text); font-size: 28px; letter-spacing: .2px; font-weight: 400; }
 .theme-anime .main-nav button, .theme-anime .group-nav button { font-size: 15px; border-radius: 16px; }
 .theme-anime .main-nav button b { font-size: 12px; }
-.theme-anime .appearance-link, .theme-anime .help-link { font-size: 14px; }
+.theme-anime .appearance-link, .theme-anime .help-link, .theme-anime .export-link { font-size: 14px; }
 .theme-anime .tool-dock { border-radius: 23px; background: rgb(var(--ui-surface-rgb) / 0.929); box-shadow: 0 5px 19px rgb(var(--ui-shadow-rgb) / 0.063); }
 .theme-anime .icon-action { border-radius: 16px; color: var(--ui-text); }
 .theme-anime .icon-action.primary-action { color: var(--on-accent); background: linear-gradient(140deg, var(--ui-accent), var(--ui-accent)); }
@@ -171,7 +171,7 @@
   .brand-symbol { width: 37px; height: 39px; }
   .brand strong { font-size: 24px; }
   .sidebar-header { gap: 3px; }
-  .main-nav button, .group-nav button, .appearance-link, .help-link { padding: 10px; gap: 8px; }
+  .main-nav button, .group-nav button, .appearance-link, .help-link, .export-link { padding: 10px; gap: 8px; }
   .icon-action { width: 39px; height: 39px; }
   .tool-dock { gap: 4px; padding: 5px; }
   .toolbar { gap: 9px; min-height: 50px; margin-bottom: 17px; }
@@ -202,7 +202,7 @@
   .group-nav { display: flex; }
   .group-dot { margin: 0 4px; width: 5px; height: 5px; }
   .sidebar-bottom { display: flex; padding-top: 12px; margin-top: auto; align-self: stretch; }
-  .appearance-link, .help-link { font-size: 10px; padding: 9px 6px; gap: 6px; min-height: 38px; }
+  .appearance-link, .help-link, .export-link { font-size: 10px; padding: 9px 6px; gap: 6px; min-height: 38px; }
   .appearance-link svg, .help-link svg { width: 15px; height: 15px; }
   .sidebar-collapsed .sidebar { width: 58px; padding: 15px 6px 10px; }
   .sidebar-collapsed .group-label { display: none; }
@@ -236,7 +236,7 @@
   .theme-anime .brand strong { font-size: 22px; }
   .theme-anime .main-nav button, .theme-anime .group-nav button { font-size: 12px; }
   .theme-anime .main-nav button b { font-size: 9px; }
-  .theme-anime .appearance-link, .theme-anime .help-link { font-size: 11px; }
+  .theme-anime .appearance-link, .theme-anime .help-link, .theme-anime .export-link { font-size: 11px; }
   .theme-anime .card-label h2 { font-size: 15px; }
   .theme-anime .empty-state h2 { font-size: 16px; }
   .theme-anime .empty-actions .btn { font-size: 11px; }

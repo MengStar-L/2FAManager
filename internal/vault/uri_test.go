@@ -25,6 +25,24 @@ func TestPreviewURI(t *testing.T) {
 	}
 }
 
+func TestExportURIProducesRoundTripPortableString(t *testing.T) {
+	input := TokenInput{Issuer: "云 端", Account: "alice+home@example.com", Secret: "JBSWY3DPEHPK3PXP", Algorithm: "SHA512", Digits: 8, Period: 60}
+	raw, err := ExportURI(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(raw, "otpauth://totp/") || !strings.Contains(raw, "secret=JBSWY3DPEHPK3PXP") {
+		t.Fatalf("unexpected exported URI: %q", raw)
+	}
+	parsed, err := PreviewURI(raw)
+	if err != nil {
+		t.Fatalf("exported URI did not round trip: %v", err)
+	}
+	if parsed != (TokenInput{Issuer: "云 端", Account: "alice+home@example.com", Secret: "JBSWY3DPEHPK3PXP", Algorithm: "SHA512", Digits: 8, Period: 60, Color: "#8581d8"}) {
+		t.Fatalf("round trip changed token: %+v", parsed)
+	}
+}
+
 func TestPreviewURIRejectsUnsupportedOrAmbiguousInput(t *testing.T) {
 	cases := []string{
 		"https://example.com/?secret=JBSWY3DPEHPK3PXP",

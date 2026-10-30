@@ -144,6 +144,18 @@ func (a *App) GetTokens() ([]vault.Token, error) {
 	return a.store.List()
 }
 
+// ExportTokens returns the complete vault as newline-separated otpauth links.
+// The returned string contains the saved secrets and is intended only for an
+// explicit user export/copy action; it is never included in normal state DTOs.
+func (a *App) ExportTokens() (string, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if err := a.ready(); err != nil {
+		return "", err
+	}
+	return a.store.ExportURIs()
+}
+
 func (a *App) AddToken(input vault.TokenInput) (vault.Token, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -118,6 +119,31 @@ func TestStoreLifecycleAndSecretBoundary(t *testing.T) {
 	tokens, err = reopen().List()
 	if err != nil || len(tokens) != 0 {
 		t.Fatal("deletion was not persisted")
+	}
+}
+
+func TestExportURIsReturnsAllTokensAsImportableLines(t *testing.T) {
+	store, _ := newTestStore(t)
+	if _, err := store.Add(testInput("alice@example.com")); err != nil {
+		t.Fatal(err)
+	}
+	second := testInput("bob@example.com")
+	second.Secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+	if _, err := store.Add(second); err != nil {
+		t.Fatal(err)
+	}
+	exported, err := store.ExportURIs()
+	if err != nil || exported == "" {
+		t.Fatalf("export: %q, %v", exported, err)
+	}
+	lines := strings.Split(exported, "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected two export lines, got %d", len(lines))
+	}
+	for _, line := range lines {
+		if _, err := PreviewURI(line); err != nil {
+			t.Fatalf("export line not importable: %v", err)
+		}
 	}
 }
 

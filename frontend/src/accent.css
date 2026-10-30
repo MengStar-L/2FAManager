@@ -23,11 +23,11 @@
 }
 .app .main-nav button.active, .app .group-nav button.active { color: var(--ui-text); background: var(--ui-soft); }
 .app .main-nav button.active b { color: var(--ui-text); }
-.app .icon-action, .app .sidebar-toggle, .app .appearance-link, .app .help-link { color: var(--ui-text); }
+.app .icon-action, .app .sidebar-toggle, .app .appearance-link, .app .help-link, .app .export-link { color: var(--ui-text); }
 .app .icon-action:hover, .app .icon-action.selected, .app .sidebar-toggle:hover { color: var(--ui-text); background: var(--ui-soft); }
 .app .brand strong, .app .modal h2, .app .empty-state h2, .app .card-label h2 { color: var(--ui-ink); }
 .app .card-label p { color: var(--ui-muted); }
-.app .main-nav button:not(.active):hover, .app .group-nav button:hover, .app .appearance-link:hover, .app .help-link:hover { background: var(--ui-tint); }
+.app .main-nav button:not(.active):hover, .app .group-nav button:hover, .app .appearance-link:hover, .app .help-link:hover, .app .export-link:hover { background: var(--ui-tint); }
 .app .theme-option.selected, .app .pattern-option.selected { border-color: var(--ui-focus); box-shadow: 0 0 0 2px var(--ui-soft); }
 .app .theme-check { color: var(--ui-text); }
 .app .theme-preview-anime { color: var(--ui-text); background: linear-gradient(130deg, #fffdf8, var(--ui-soft)); }
