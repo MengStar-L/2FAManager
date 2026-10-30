@@ -80,6 +80,7 @@ public static class LumaWindowProbe {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hwnd, ref PLACEMENT placement);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
   [DllImport("user32.dll")] public static extern int GetWindowRgn(IntPtr hwnd, IntPtr region);
@@ -133,7 +134,7 @@ try {
 } finally { $null=[LumaWindowProbe]::DeleteObject($region) }
 [uint32]$cornerPreference=0
 $dwmResult=[LumaWindowProbe]::DwmGetWindowAttribute($handle,33,[ref]$cornerPreference,4)
-@{ found=$true; visible=[LumaWindowProbe]::IsWindowVisible($handle); minimized=[LumaWindowProbe]::IsIconic($handle); maximized=[LumaWindowProbe]::IsZoomed($handle); normal=@{ x=$placement.Normal.Left; y=$placement.Normal.Top; width=$placement.Normal.Right-$placement.Normal.Left; height=$placement.Normal.Bottom-$placement.Normal.Top }; shape=@{ width=$width; height=$height; regionType=$regionType; corners=$corners; edgeMidpoints=$edgeMidpoints; center=$center; dwmResult=$dwmResult; cornerPreference=$cornerPreference } } | ConvertTo-Json -Depth 4 -Compress
+@{ found=$true; foreground=($handle -eq [LumaWindowProbe]::GetForegroundWindow()); visible=[LumaWindowProbe]::IsWindowVisible($handle); minimized=[LumaWindowProbe]::IsIconic($handle); maximized=[LumaWindowProbe]::IsZoomed($handle); normal=@{ x=$placement.Normal.Left; y=$placement.Normal.Top; width=$placement.Normal.Right-$placement.Normal.Left; height=$placement.Normal.Bottom-$placement.Normal.Top }; shape=@{ width=$width; height=$height; regionType=$regionType; corners=$corners; edgeMidpoints=$edgeMidpoints; center=$center; dwmResult=$dwmResult; cornerPreference=$cornerPreference } } | ConvertTo-Json -Depth 4 -Compress
 `);
 }
 
@@ -295,7 +296,10 @@ async function launchNative(appData, localData) {
     await delay(200);
   }
   check(debuggerReady, 'WebView2 did not expose its isolated loopback debugging endpoint');
-  session.browser = await chromium.connectOverCDP(endpoint, { timeout: 10000 });
+  // Attach without Playwright's default focus emulation. Recent Chromium keeps
+  // that override on the original CDP session even when a second session asks
+  // to disable it, which makes document.hasFocus() lie while minimised.
+  session.browser = await chromium.connectOverCDP(endpoint, { timeout: 10000, noDefaults: true });
   while (Date.now() < deadline) {
     for (const context of session.browser.contexts()) {
       for (const page of context.pages()) {
@@ -447,6 +451,27 @@ async function verifyMigrationImport(page, dataDirectory) {
   check(typeof exported === 'string' && exported.split(/\r?\n/).length === 2, 'Native export did not return one standard URI per token');
   check(exported.includes(secretByIssuer.OpenAI) && exported.includes(secretByIssuer.Google) && exported.startsWith('otpauth://totp/'), 'Native export is missing the imported 2FA keys or standard URI prefix');
   passed('native 2FA export returns importable long strings without exposing secrets in token metadata');
+  const selected = imported.find(token => token.issuer === 'OpenAI');
+  const selectedPreview = await bridge(page, 'PreviewTokenExport', [selected.id]);
+  check(selectedPreview.credentials.length === 1 && selectedPreview.credentials[0].id === selected.id && selectedPreview.credentials[0].secret === secretByIssuer.OpenAI && !selectedPreview.text.includes(secretByIssuer.Google), 'Selected credential preview included another account or lost its key');
+  const beforePreviewDelete = await readFile(path.join(dataDirectory, 'vault.dat'));
+  await expectRejected(page, 'DeleteExportedTokens', selectedPreview.exportId);
+  check(beforePreviewDelete.equals(await readFile(path.join(dataDirectory, 'vault.dat'))), 'Viewing credentials permitted deletion before successful export');
+  await bridge(page, 'DiscardTokenExport', selectedPreview.exportId);
+  await expectRejected(page, 'CopyTokenExport', selectedPreview.exportId);
+  passed('native selected credentials exclude other accounts and cannot authorize deletion before export');
+  const selectedCard = page.locator('.token-card').filter({ hasText: selected.account });
+  await selectedCard.getByRole('button', { name: 'OpenAI 更多操作', exact: true }).click();
+  await page.getByRole('button', { name: '查看凭证', exact: true }).click();
+  check(await page.getByRole('checkbox', { checked: true }).count() === 1, 'Card credential action did not preselect exactly one account');
+  check(await page.getByRole('checkbox', { name: `选择 OpenAI ${selected.account}`, exact: true }).isChecked(), 'Card credential action selected the wrong account');
+  await page.getByRole('button', { name: '查看凭证', exact: true }).click();
+  await page.getByRole('textbox', { name: `OpenAI ${selected.account} 的密钥`, exact: true }).waitFor();
+  check(await page.getByRole('textbox', { name: `OpenAI ${selected.account} 的密钥`, exact: true }).inputValue() === secretByIssuer.OpenAI, 'Native credential view did not show the saved Base32 key');
+  await page.getByRole('button', { name: '关闭弹窗', exact: true }).click();
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  await assertIsolatedState(page, dataDirectory, 2);
+  passed('native card credential view preselects the account, shows its key, and preserves accounts on dismissal');
   const encrypted = await readFile(path.join(dataDirectory, 'vault.dat'));
   await expectRejected(page, 'ImportTokens', single.map(item => item.uri));
   check(encrypted.equals(await readFile(path.join(dataDirectory, 'vault.dat'))), 'Repeated Google transfer changed the existing vault');
@@ -666,6 +691,10 @@ try {
   // native activation checks so minimisation can deliver real blur events.
   const activationCDP = await page.context().newCDPSession(page);
   await activationCDP.send('Emulation.setFocusEmulationEnabled', { enabled: false });
+  // A visible test window may still be behind another app. Establish actual
+  // native activation first; a DOM focus call alone does not activate Windows.
+  await restoreViaSecondInstance(session);
+  await waitWindow(session, state => state.foreground, 'become the foreground window before the blur check');
   await nativeSearch.focus();
   await nativeSearch.press('End');
   await page.evaluate(() => window.runtime.WindowMinimise());

@@ -38,6 +38,10 @@ type App struct {
 	closeMu           sync.Mutex
 	updates           *applicationUpdater
 	clipboardWrite    func(context.Context, string) error
+	exportMu          sync.Mutex
+	tokenExport       *tokenExportSession
+	exportSaveDialog  func(context.Context, runtime.SaveDialogOptions) (string, error)
+	exportWriteFile   func(string, []byte) error
 }
 
 type State struct {
@@ -59,6 +63,9 @@ func (a *App) shutdown(context.Context) {
 	if a.updates != nil {
 		a.updates.stop()
 	}
+	a.exportMu.Lock()
+	a.tokenExport = nil
+	a.exportMu.Unlock()
 	a.mu.Lock()
 	a.removeUnusedMediaLocked(a.pendingBackground.BackgroundURL)
 	tray := a.tray

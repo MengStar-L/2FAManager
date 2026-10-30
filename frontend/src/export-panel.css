@@ -1,0 +1,35 @@
+.export-panel { min-width: 0; }
+.export-panel .modal-description { margin-bottom: 15px; }
+.export-panel h2 { margin-bottom: 18px; }
+.credential-selection-summary { display: flex; justify-content: space-between; align-items: center; padding: 13px 15px; border-radius: 14px; background: var(--ui-tint); color: var(--ui-text); font-size: 12px; margin-bottom: 14px; }
+.credential-selector { padding: 12px; border-radius: 18px; background: var(--ui-tint); margin-bottom: 16px; }
+.credential-search { display: flex; align-items: center; gap: 9px; padding: 0 12px; min-width: 0; color: var(--ui-muted); border-radius: 12px; background: #fffef9; border: 1px solid var(--ui-border); }
+.credential-search input { min-width: 0; width: 100%; padding: 11px 0; background: transparent; border: 0; outline: 0; color: var(--ui-text); font-size: 12px; }
+.credential-select-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 3px 10px; color: var(--ui-text); font-size: 11px; }
+.credential-select-tools > span { margin-right: auto; }
+.credential-list { max-height: 215px; overflow: auto; display: grid; gap: 5px; padding-right: 3px; }
+.credential-option { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px; border-radius: 12px; background: rgb(var(--ui-surface-rgb) / .6); color: var(--ui-text); cursor: pointer; border: 1px solid transparent; }
+.credential-option.selected { background: var(--ui-soft); border-color: var(--ui-border); }
+.credential-option input { appearance: none; flex: 0 0 17px; width: 17px; height: 17px; border: 1.5px solid var(--ui-muted); border-radius: 6px; background: #fffef9; margin: 0; position: relative; cursor: pointer; }
+.credential-option input:checked { background: var(--ui-accent); border-color: var(--ui-accent); }
+.credential-option input:checked::after { content: ''; position: absolute; width: 7px; height: 4px; border-left: 2px solid var(--on-accent); border-bottom: 2px solid var(--on-accent); transform: rotate(-45deg); left: 3px; top: 3px; }
+.credential-option > svg, .exported-accounts > div > svg { width: 23px; height: 23px; flex: 0 0 23px; }
+.credential-option > span, .exported-accounts > div > span { min-width: 0; flex: 1; }
+.credential-option strong, .exported-accounts strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.credential-option small, .exported-accounts small { display: block; font-size: 10px; color: var(--ui-muted); overflow-wrap: anywhere; margin-top: 3px; }
+.credential-option em { max-width: 90px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; font-style: normal; font-size: 9px; color: var(--ui-muted); }
+.credential-empty { text-align: center; padding: 22px 8px; color: var(--ui-muted); font-size: 12px; }
+.credential-keys { display: grid; gap: 8px; max-height: 180px; overflow: auto; }
+.credential-keys label { display: block; min-width: 0; padding: 12px; border-radius: 13px; background: var(--ui-tint); }
+.credential-keys label > span { display: block; font-size: 11px; color: var(--ui-text); overflow-wrap: anywhere; margin-bottom: 8px; }
+.credential-keys input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid var(--ui-border); border-radius: 9px; padding: 9px; background: #fffef9; color: var(--ui-ink); font: 12px/1.5 Consolas, monospace; }
+.credential-links-label { display: block; font-size: 11px; color: var(--ui-muted); margin-top: 14px; }
+.credential-links-label .export-textarea { margin-top: 8px; height: 78px; }
+.export-panel .export-footer, .export-choice-footer { flex-wrap: wrap; }
+.export-panel .export-footer .btn { flex: 1; justify-content: center; white-space: nowrap; }
+.exported-accounts { max-height: 260px; overflow: auto; border-radius: 16px; padding: 8px; background: var(--ui-tint); }
+.exported-accounts > div { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 12px; }
+.exported-accounts > div > svg:last-child { width: 15px; height: 15px; flex: 0 0 15px; color: var(--ui-muted); }
+.export-result .field-hint { margin-top: 14px; line-height: 1.6; }
+.export-choice-footer > .danger-text { margin-right: auto; }
+@media(max-width:620px) { .credential-selector { padding: 9px; } .credential-option { gap: 7px; padding: 9px 7px; } .credential-option em { display: none; } .credential-option > svg { width: 19px; height: 19px; flex-basis: 19px; } .credential-list { max-height: 185px; } .export-panel .export-footer { gap: 7px; } .export-panel .export-footer .btn { padding: 11px 12px; font-size: 10px; } .credential-keys input { font-size: 11px; } }

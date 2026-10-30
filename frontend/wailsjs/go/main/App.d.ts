@@ -13,7 +13,13 @@ export function CopyAccount(arg1:string):Promise<void>;
 
 export function CopyCode(arg1:string):Promise<void>;
 
+export function CopyTokenExport(arg1:string):Promise<void>;
+
+export function DeleteExportedTokens(arg1:string):Promise<void>;
+
 export function DeleteToken(arg1:string):Promise<void>;
+
+export function DiscardTokenExport(arg1:string):Promise<void>;
 
 export function DownloadUpdate():Promise<main.UpdateStatus>;
 
@@ -39,11 +45,15 @@ export function PreviewImage(arg1:string):Promise<Array<main.ImportPreview>>;
 
 export function PreviewText(arg1:string):Promise<Array<main.ImportPreview>>;
 
+export function PreviewTokenExport(arg1:Array<string>):Promise<main.TokenExport>;
+
 export function QuitApp():Promise<void>;
 
 export function SaveSession(arg1:main.SessionState):Promise<void>;
 
 export function SaveSettings(arg1:main.Settings):Promise<main.Settings>;
+
+export function SaveTokenExport(arg1:string):Promise<boolean>;
 
 export function ToggleFavorite(arg1:string):Promise<void>;
 

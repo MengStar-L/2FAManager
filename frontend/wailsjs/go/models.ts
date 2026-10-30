@@ -122,6 +122,40 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class TokenExport {
+	    exportId: string;
+	    credentials: vault.ExportCredential[];
+	    text: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TokenExport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.exportId = source["exportId"];
+	        this.credentials = this.convertValues(source["credentials"], vault.ExportCredential);
+	        this.text = source["text"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class UpdateStatus {
 	    currentVersion: string;
 	    latestVersion: string;
@@ -155,6 +189,26 @@ export namespace main {
 
 export namespace vault {
 	
+	export class ExportCredential {
+	    id: string;
+	    issuer: string;
+	    account: string;
+	    secret: string;
+	    uri: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportCredential(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.issuer = source["issuer"];
+	        this.account = source["account"];
+	        this.secret = source["secret"];
+	        this.uri = source["uri"];
+	    }
+	}
 	export class MigrationBatch {
 	    id: string;
 	    size: number;

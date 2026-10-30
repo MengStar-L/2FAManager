@@ -15,6 +15,9 @@ func ExportURI(input TokenInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if strings.Contains(input.Issuer, ":") || strings.Contains(input.Account, ":") {
+		return "", errors.New("服务名称或账户名称包含冒号，无法生成兼容的令牌链接；请编辑名称后重试")
+	}
 	label := input.Account
 	if input.Issuer != "" {
 		label = input.Issuer + ":" + input.Account

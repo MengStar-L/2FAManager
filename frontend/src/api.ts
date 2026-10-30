@@ -4,17 +4,19 @@ export type Settings = { backgroundType: 'pattern' | 'image' | 'video'; pattern:
 export type UpdateStatus = { currentVersion: string; latestVersion: string; phase: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'upToDate' | 'error'; progress: number; releaseUrl: string; message: string; lastChecked: string; downloadedBytes: number; totalBytes: number }
 export type SessionState = { sidebarCollapsed: boolean; filter: string; search: string }
 export type ImportPreview = { issuer: string; account: string; uri: string; migration?: { id: string; size: number; index: number } }
+export type ExportCredential = { id: string; issuer: string; account: string; secret: string; uri: string }
+export type TokenExport = { exportId: string; credentials: ExportCredential[]; text: string }
 export type State = { tokens: Token[]; settings: Settings; session: SessionState; dataPath: string; warning?: string }
 export const defaultSettings: Settings = { backgroundType: 'pattern', pattern: 'dots', backgroundUrl: '', backgroundName: '', opacity: 0.18, motion: true, theme: 'regular', closeToTray: true, accentColor: '#8773b7', checkUpdatesAutomatically: true, updateAutomatically: false }
 export const defaultUpdateStatus: UpdateStatus = { currentVersion: '', latestVersion: '', phase: 'idle', progress: 0, releaseUrl: '', message: '', lastChecked: '', downloadedBytes: 0, totalBytes: 0 }
 export const defaultSession: SessionState = { sidebarCollapsed: false, filter: 'all', search: '' }
 export const demo = new URLSearchParams(window.location.search).has('demo')
-type Bridge = { GetState(): Promise<State>; GetTokens(): Promise<Token[]>; ExportTokens(): Promise<string>; PreviewClipboard(): Promise<ImportPreview[]>; PreviewText(text: string): Promise<ImportPreview[]>; PreviewImage(image: string): Promise<ImportPreview[]>; ImportTokens(uris: string[]): Promise<Token[]>; AddToken(input: TokenInput): Promise<Token>; UpdateToken(id: string, input: TokenInput): Promise<Token>; DeleteToken(id: string): Promise<void>; ToggleFavorite(id: string): Promise<void>; CopyCode(id: string): Promise<void>; CopyAccount(id: string): Promise<void>; PickBackground(): Promise<Settings | null>; SaveSettings(settings: Settings): Promise<Settings>; SaveSession(session: SessionState): Promise<void>; CloseWindow(): Promise<void>; QuitApp(): Promise<void>; GetUpdateStatus(): Promise<UpdateStatus>; CheckForUpdates(): Promise<UpdateStatus>; DownloadUpdate(): Promise<UpdateStatus>; InstallUpdate(): Promise<void>; OpenReleasePage(): Promise<void> }
+type Bridge = { GetState(): Promise<State>; GetTokens(): Promise<Token[]>; ExportTokens(): Promise<string>; PreviewTokenExport(ids: string[]): Promise<TokenExport>; CopyTokenExport(exportId: string): Promise<void>; SaveTokenExport(exportId: string): Promise<boolean>; DeleteExportedTokens(exportId: string): Promise<void>; DiscardTokenExport(exportId: string): Promise<void>; PreviewClipboard(): Promise<ImportPreview[]>; PreviewText(text: string): Promise<ImportPreview[]>; PreviewImage(image: string): Promise<ImportPreview[]>; ImportTokens(uris: string[]): Promise<Token[]>; AddToken(input: TokenInput): Promise<Token>; UpdateToken(id: string, input: TokenInput): Promise<Token>; DeleteToken(id: string): Promise<void>; ToggleFavorite(id: string): Promise<void>; CopyCode(id: string): Promise<void>; CopyAccount(id: string): Promise<void>; PickBackground(): Promise<Settings | null>; SaveSettings(settings: Settings): Promise<Settings>; SaveSession(session: SessionState): Promise<void>; CloseWindow(): Promise<void>; QuitApp(): Promise<void>; GetUpdateStatus(): Promise<UpdateStatus>; CheckForUpdates(): Promise<UpdateStatus>; DownloadUpdate(): Promise<UpdateStatus>; InstallUpdate(): Promise<void>; OpenReleasePage(): Promise<void> }
 type RuntimeEvents = { (event: 'app:warning', callback: (message: string) => void): () => void; (event: 'app:update', callback: (status: UpdateStatus) => void): () => void }
 declare global { interface Window { go?: { main?: { App?: Bridge } }; runtime?: { WindowMinimise(): void; WindowToggleMaximise(): void; WindowIsMaximised?(): Promise<boolean>; EventsOn?: RuntimeEvents; Quit(): void } } }
 export const native = Boolean(window.go?.main?.App)
 let mockSettings = { ...defaultSettings }
-let mockUpdate: UpdateStatus = { ...defaultUpdateStatus, currentVersion: '0.3.3' }
+let mockUpdate: UpdateStatus = { ...defaultUpdateStatus, currentVersion: '0.3.4' }
 let mockDownloadTimer: ReturnType<typeof setInterval> | null = null
 const mockUpdateListeners = new Set<(status: UpdateStatus) => void>()
 function publishMockUpdate(status: Partial<UpdateStatus>) { mockUpdate = { ...mockUpdate, ...status }; for (const listener of mockUpdateListeners) listener({ ...mockUpdate }); return { ...mockUpdate } }
@@ -56,6 +58,11 @@ const mock: Bridge = {
   async GetState() { return { tokens: refreshDemo(), settings: mockSettings, session: mockSession, dataPath: '' } },
   async GetTokens() { return refreshDemo() },
   async ExportTokens() { requireDemo(); throw new Error('演示模式不包含真实密钥，请在桌面应用中导出。') },
+  async PreviewTokenExport() { requireDemo(); throw new Error('演示模式不包含真实密钥，请在桌面应用中查看凭证。') },
+  async CopyTokenExport() { requireDemo(); throw new Error('请在桌面应用中导出凭证。') },
+  async SaveTokenExport() { requireDemo(); throw new Error('请在桌面应用中保存凭证。') },
+  async DeleteExportedTokens() { requireDemo(); throw new Error('请在桌面应用中管理导出的账号。') },
+  async DiscardTokenExport() {},
   async PreviewClipboard() { requireDemo(); throw new Error('真实剪贴板二维码识别请使用桌面应用。演示模式可测试令牌链接和手动添加。') },
   async PreviewText(text) { requireDemo(); return previewText(text) },
   async PreviewImage() { requireDemo(); throw new Error('二维码图片识别需要桌面应用。演示模式可测试手动添加和令牌链接。') },
@@ -72,7 +79,7 @@ const mock: Bridge = {
   async CloseWindow() { throw new Error('窗口和托盘功能请在桌面应用中使用。') },
   async QuitApp() { throw new Error('退出功能请在桌面应用中使用。') },
   async GetUpdateStatus() { return { ...mockUpdate } },
-  async CheckForUpdates() { requireDemo(); if (mockUpdate.phase === 'downloading' || mockUpdate.phase === 'ready') return { ...mockUpdate }; publishMockUpdate({ phase: 'checking', message: '' }); await new Promise(resolve => setTimeout(resolve, 320)); const phase = mockUpdate.currentVersion === '0.3.4' ? 'upToDate' : 'available'; const status = publishMockUpdate({ phase, latestVersion: '0.3.4', lastChecked: new Date().toISOString(), releaseUrl: '', message: '演示更新，不会下载或安装真实文件。' }); if (phase === 'available' && mockSettings.updateAutomatically) return mock.DownloadUpdate(); return status },
+  async CheckForUpdates() { requireDemo(); if (mockUpdate.phase === 'downloading' || mockUpdate.phase === 'ready') return { ...mockUpdate }; publishMockUpdate({ phase: 'checking', message: '' }); await new Promise(resolve => setTimeout(resolve, 320)); const phase = mockUpdate.currentVersion === '0.3.5' ? 'upToDate' : 'available'; const status = publishMockUpdate({ phase, latestVersion: '0.3.5', lastChecked: new Date().toISOString(), releaseUrl: '', message: '演示更新，不会下载或安装真实文件。' }); if (phase === 'available' && mockSettings.updateAutomatically) return mock.DownloadUpdate(); return status },
   async DownloadUpdate() { requireDemo(); if (mockDownloadTimer || mockUpdate.phase === 'ready') return { ...mockUpdate }; if (!mockUpdate.latestVersion || mockUpdate.latestVersion === mockUpdate.currentVersion) throw new Error('请先检查更新。'); publishMockUpdate({ phase: 'downloading', progress: 0, downloadedBytes: 0, totalBytes: 24 * 1024 * 1024, message: '正在模拟下载…' }); mockDownloadTimer = setInterval(() => { const progress = Math.min(100, mockUpdate.progress + 12.5); publishMockUpdate({ phase: progress === 100 ? 'ready' : 'downloading', progress, downloadedBytes: mockUpdate.totalBytes * progress / 100, message: progress === 100 ? '演示更新已就绪，不会修改真实文件。' : '正在模拟下载…' }); if (progress === 100 && mockDownloadTimer) { clearInterval(mockDownloadTimer); mockDownloadTimer = null } }, 180); return { ...mockUpdate } },
   async InstallUpdate() { requireDemo(); if (mockUpdate.phase !== 'ready') throw new Error('更新尚未下载完成。'); publishMockUpdate({ currentVersion: mockUpdate.latestVersion, phase: 'upToDate', progress: 0, downloadedBytes: 0, totalBytes: 0, message: '演示更新已完成，浏览器不会重启。' }) },
   async OpenReleasePage() { throw new Error('发布说明请在桌面应用中打开。') },

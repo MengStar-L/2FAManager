@@ -168,7 +168,7 @@ func (s *Store) ExportURIs() (string, error) {
 	for _, record := range s.records {
 		uri, err := ExportURI(record.TokenInput)
 		if err != nil {
-			return "", errors.New("令牌库中存在无效令牌，无法导出")
+			return "", err
 		}
 		uris = append(uris, uri)
 	}

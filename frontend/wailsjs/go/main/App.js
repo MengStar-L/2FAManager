@@ -22,8 +22,20 @@ export function CopyCode(arg1) {
   return window['go']['main']['App']['CopyCode'](arg1);
 }
 
+export function CopyTokenExport(arg1) {
+  return window['go']['main']['App']['CopyTokenExport'](arg1);
+}
+
+export function DeleteExportedTokens(arg1) {
+  return window['go']['main']['App']['DeleteExportedTokens'](arg1);
+}
+
 export function DeleteToken(arg1) {
   return window['go']['main']['App']['DeleteToken'](arg1);
+}
+
+export function DiscardTokenExport(arg1) {
+  return window['go']['main']['App']['DiscardTokenExport'](arg1);
 }
 
 export function DownloadUpdate() {
@@ -74,6 +86,10 @@ export function PreviewText(arg1) {
   return window['go']['main']['App']['PreviewText'](arg1);
 }
 
+export function PreviewTokenExport(arg1) {
+  return window['go']['main']['App']['PreviewTokenExport'](arg1);
+}
+
 export function QuitApp() {
   return window['go']['main']['App']['QuitApp']();
 }
@@ -84,6 +100,10 @@ export function SaveSession(arg1) {
 
 export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
+}
+
+export function SaveTokenExport(arg1) {
+  return window['go']['main']['App']['SaveTokenExport'](arg1);
 }
 
 export function ToggleFavorite(arg1) {
